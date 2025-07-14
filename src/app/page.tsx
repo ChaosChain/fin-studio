@@ -30,6 +30,14 @@ export default function HomePage() {
                   AI-Powered Investment Analysis Platform
                 </p>
               </div>
+              <div className="flex items-center gap-4">
+                <a
+                  href="/demo"
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors"
+                >
+                  💳 Payment Demo
+                </a>
+              </div>
               <ConnectionStatus />
             </div>
           </div>
