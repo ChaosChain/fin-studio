@@ -79,9 +79,6 @@ export default function PaymentDemoPage() {
     console.log('Payment successful:', txHash);
     setPaymentStatus(prev => ({ ...prev, [selectedAgent]: true }));
     setIsPaymentOpen(false);
-    
-    // Show success message
-    alert(`Payment successful! Transaction: ${txHash.substring(0, 10)}...`);
   };
 
   const handlePaymentError = (error: string) => {

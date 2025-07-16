@@ -23,6 +23,7 @@ export function PaymentDialog({
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(PaymentStatus.PENDING);
   const [txHash, setTxHash] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentStep, setCurrentStep] = useState<string>('');
 
   const amount = parseFloat(paymentRequirements.maxAmountRequired) / 1e6; // Convert from wei to USDC
   const network = paymentRequirements.network;
@@ -34,28 +35,66 @@ export function PaymentDialog({
     }
   }, [paymentStatus, txHash, onPaymentSuccess]);
 
+  useEffect(() => {
+    if (isOpen) {
+      // Reset state when dialog opens
+      setPaymentStatus(PaymentStatus.PENDING);
+      setTxHash('');
+      setIsProcessing(false);
+      setCurrentStep('');
+    }
+  }, [isOpen]);
+
   const handlePayment = async () => {
     try {
       setIsProcessing(true);
       setPaymentStatus(PaymentStatus.PENDING);
+      setCurrentStep('Initializing payment...');
       
-      // For demo purposes, we'll simulate a successful payment
-      // In production, this would interact with the actual escrow contract
-      const simulatedTxHash = '0x' + Math.random().toString(16).substring(2, 66);
-      setTxHash(simulatedTxHash);
+      // Call the actual payment service
+      setCurrentStep('Processing payment on Base Sepolia...');
+      const response = await fetch('/api/payment/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: amount,
+          network: network,
+          agentId: agentName.toLowerCase().replace(/\s+/g, '-'),
+          requirements: paymentRequirements
+        })
+      });
       
-      // Simulate transaction confirmation
-      setTimeout(() => {
+      setCurrentStep('Verifying transaction...');
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        setCurrentStep('Payment completed successfully!');
+        setTxHash(result.txHash);
         setPaymentStatus(PaymentStatus.CAPTURED);
         setIsProcessing(false);
-        onPaymentSuccess(simulatedTxHash);
-      }, 2000);
+        onPaymentSuccess(result.txHash);
+      } else {
+        const errorMessage = result.error || `HTTP ${response.status}: ${response.statusText}`;
+        console.error('Payment API Error:', errorMessage);
+        console.error('Full response:', result);
+        throw new Error(errorMessage);
+      }
 
     } catch (error) {
       console.error('Payment failed:', error);
       setPaymentStatus(PaymentStatus.FAILED);
       setIsProcessing(false);
-      onPaymentError(error instanceof Error ? error.message : 'Payment failed');
+      setCurrentStep('Payment failed');
+      
+      // Show more detailed error information
+      const errorMessage = error instanceof Error ? error.message : 'Payment failed';
+      const detailedError = errorMessage.includes('execution reverted') 
+        ? 'Transaction failed - this might be due to insufficient funds, expired approval, or contract constraints'
+        : errorMessage;
+      
+      onPaymentError(detailedError);
     }
   };
 
@@ -127,6 +166,12 @@ export function PaymentDialog({
                   {getStatusText()}
                 </span>
               </div>
+              {currentStep && (
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium">Progress:</span>
+                  <span className="text-sm text-gray-600">{currentStep}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -142,32 +187,41 @@ export function PaymentDialog({
           )}
 
           <div className="flex space-x-3">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handlePayment}
-              disabled={isProcessing || paymentStatus === PaymentStatus.CAPTURED}
-              className={`flex-1 px-4 py-2 rounded-md text-white font-medium ${
-                isProcessing || paymentStatus === PaymentStatus.CAPTURED
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700'
-              }`}
-            >
-              {isProcessing ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
-                  Processing...
-                </div>
-              ) : paymentStatus === PaymentStatus.CAPTURED ? (
-                'Paid'
-              ) : (
-                `Pay $${amount.toFixed(3)}`
-              )}
-            </button>
+            {paymentStatus === PaymentStatus.CAPTURED ? (
+              <button
+                onClick={onClose}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium"
+              >
+                OK
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={onClose}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePayment}
+                  disabled={isProcessing}
+                  className={`flex-1 px-4 py-2 rounded-md text-white font-medium ${
+                    isProcessing
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  {isProcessing ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                      Processing...
+                    </div>
+                  ) : (
+                    `Pay $${amount.toFixed(3)}`
+                  )}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
