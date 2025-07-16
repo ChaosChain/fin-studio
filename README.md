@@ -67,12 +67,23 @@ yarn install
 
 Create a `.env.local` file in the root directory:
 
+```bash
+# Copy the template file first
+cp env.local.template .env.local
+
+# Then edit with your values:
+```
+
 ```env
 # OpenAI API Key (Required)
 OPENAI_API_KEY=your_openai_api_key_here
 
 # Agent Manager Configuration
 AGENT_MANAGER_PORT=8080
+
+# Network Configuration (Base Sepolia pre-configured)
+NETWORK=base-sepolia
+BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 ```
 
 ### 4. Build the agents

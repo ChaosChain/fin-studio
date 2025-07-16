@@ -40,9 +40,14 @@ export class PaymentServiceImpl extends EventEmitter implements PaymentService {
   private initializeClients() {
     const chain = this.config.defaultNetwork === 'base' ? base : baseSepolia;
     
+    // Use configurable RPC URL if available, otherwise use default
+    const rpcUrl = this.config.defaultNetwork === 'base' 
+      ? process.env.BASE_RPC_URL 
+      : process.env.BASE_SEPOLIA_RPC_URL;
+    
     this.publicClient = createPublicClient({
       chain,
-      transport: http(),
+      transport: http(rpcUrl),
     });
 
     // Only create wallet client if we have a valid private key
@@ -53,9 +58,9 @@ export class PaymentServiceImpl extends EventEmitter implements PaymentService {
         this.walletClient = createWalletClient({
           account,
           chain,
-          transport: http(),
+          transport: http(rpcUrl),
         });
-        console.log('Payment service initialized with wallet client');
+        console.log(`Payment service initialized with wallet client (RPC: ${rpcUrl || 'default'})`);
       } catch (error) {
         console.warn('Invalid private key provided, payment service running in read-only mode');
         this.walletClient = null;
