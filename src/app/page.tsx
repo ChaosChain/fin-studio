@@ -32,6 +32,12 @@ export default function HomePage() {
               </div>
               <div className="flex items-center gap-4">
                 <a
+                  href="/dashboard"
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-purple-600 bg-purple-100 rounded-lg hover:bg-purple-200 transition-colors"
+                >
+                  🤖 Agent Dashboard
+                </a>
+                <a
                   href="/demo"
                   className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors"
                 >
