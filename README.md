@@ -362,17 +362,8 @@ For production deployment:
 3. Set up environment variables
 4. Start with process manager (PM2, Docker, etc.)
 
-### Docker Support
-
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY dist/ ./dist/
-EXPOSE 8080-8084
-CMD ["node", "dist/agents/manager.js"]
-```
+##  🏗️ Technical Architecture 
+For detailed technical architecture, please refer to [docs/TECHNICAL_ARCHITECTURE.md](docs/TECHNICAL_ARCHITECTURE.md).
 
 ## 🤝 Contributing
 
@@ -393,13 +384,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Issues**: Create an issue on GitHub for bugs or feature requests
 - **Discussions**: Use GitHub Discussions for questions and ideas
 
-
-## ⚡ Performance Tips
-
-1. **Agent Optimization**: Agents process requests asynchronously
-2. **Caching**: Market data is cached to reduce API calls
-3. **Connection Pooling**: HTTP connections are reused
-4. **Rate Limiting**: Built-in rate limiting for API calls
 
 ## 🏆 Features
 
