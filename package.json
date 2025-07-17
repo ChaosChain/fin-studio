@@ -11,7 +11,7 @@
     "agents:start": "node dist/agents/manager.js",
     "agents:build": "tsc --project tsconfig.agents.json && tsc-alias -p tsconfig.agents.json",
     "gateway:start": "node dist/gateway-server.js",
-    "gateway:build": "tsc src/gateway-server.ts --outDir dist --target es2020 --module commonjs --esModuleInterop --skipLibCheck --resolveJsonModule --baseUrl . --paths.@/*[./src/*] && tsc-alias -p tsconfig.agents.json"
+    "gateway:build": "tsc -p tsconfig.agents.json && tsc-alias -p tsconfig.agents.json"
   },
   "dependencies": {
     "@a2a-js/sdk": "^0.2.2",
