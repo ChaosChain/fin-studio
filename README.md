@@ -6,27 +6,27 @@
 
 **A modern fintech platform powered by AI agents using Google Cloud's A2A (Agent-to-Agent) protocol for seamless communication and collaboration, with integrated blockchain payment systems.**
 
-[🚀 Quick Start](#-quick-start) • [🤖 AI Agents](#-ai-agents) • [💳 Payment Systems](#-payment-systems) • [🛠️ Tech Stack](#️-tech-stack) • [📚 Documentation](#-documentation)
+[Quick Start](#quick-start) • [AI Agents](#ai-agents) • [Payment Systems](#payment-systems) • [Tech Stack](#tech-stack) • [Documentation](#documentation)
 
 </div>
 
 ---
 
-## 🎯 Overview
+## Overview
 
 Fin Studio is a comprehensive AI-powered investment analysis platform that combines advanced financial analysis with blockchain payment infrastructure. The platform features specialized AI agents that collaborate using the A2A protocol to provide real-time market insights, technical analysis, and investment recommendations.
 
 ### Key Features
 
-- **🤖 Multi-Agent AI System**: Four specialized AI agents working collaboratively
-- **💳 Blockchain Payments**: Integrated x402 and Commerce Payments protocols
-- **📊 Real-time Analysis**: Live market data and AI-powered insights
-- **📈 Technical Analysis**: Advanced chart patterns and indicators
-- **🌍 Macro Research**: Economic indicators and global trends
-- **📋 PDF Reports**: Professional-grade investment reports
-- **🎨 Modern UI**: Beautiful, responsive Next.js frontend
+- **Multi-Agent AI System**: Four specialized AI agents working collaboratively
+- **Blockchain Payments**: Integrated x402 and Commerce Payments protocols
+- **Real-time Analysis**: Live market data and AI-powered insights
+- **Technical Analysis**: Advanced chart patterns and indicators
+- **Macro Research**: Economic indicators and global trends
+- **PDF Reports**: Professional-grade investment reports
+- **Modern UI**: Beautiful, responsive Next.js frontend
 
-## 🤖 AI Agents
+## AI Agents
 
 ### Market Research Agent
 - **Port**: 8081
@@ -48,7 +48,7 @@ Fin Studio is a comprehensive AI-powered investment analysis platform that combi
 - **Capabilities**: Coordination, report generation, personalized analysis
 - **Output**: Daily insights and investment recommendations
 
-## 💳 Payment Systems
+## Payment Systems
 
 ### x402 Protocol Integration
 - **Purpose**: HTTP-native payment protocol for micro-payments
@@ -60,7 +60,7 @@ Fin Studio is a comprehensive AI-powered investment analysis platform that combi
 - **Features**: Escrow-based payments, flexible fee structures
 - **Contracts**: Deployed on Base network with audited smart contracts
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Frontend
 - **Framework**: Next.js 14 with App Router
@@ -80,14 +80,14 @@ Fin Studio is a comprehensive AI-powered investment analysis platform that combi
 - **Protocols**: x402, Commerce Payments
 - **Libraries**: viem, wagmi for Web3 integration
 
-## 📋 Prerequisites
+## Prerequisites
 
 - **Node.js**: 18+ 
 - **Package Manager**: yarn (recommended) or npm
 - **OpenAI API Key**: Required for AI analysis
 - **Blockchain Wallet**: For payment testing (optional)
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Clone the Repository
 
@@ -175,7 +175,9 @@ Starts the Next.js frontend on port 3000
 - **Agent Dashboard**: [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
 - **Payment Demo**: [http://localhost:3000/demo](http://localhost:3000/demo)
 
-## 📚 Documentation
+## Documentation
+
+For detailed technical architecture, please refer to [docs/TECHNICAL_ARCHITECTURE.md](docs/TECHNICAL_ARCHITECTURE.md).
 
 ### Project Structure
 
@@ -230,7 +232,7 @@ Frontend (Next.js) → Gateway Server → AI Agents
 Port 3000            Port 8080    Ports 8081-8084
 ```
 
-## 💳 Payment Integration
+## Payment Integration
 
 ### x402 Protocol
 
@@ -260,7 +262,7 @@ const captureResult = await capturePayment(authId, amount);
 - **Base Sepolia**: Testnet for development
 - **Base Mainnet**: Production network
 
-## 🔧 Development
+## Development
 
 ### Adding New Agents
 
@@ -309,7 +311,7 @@ export class CustomAgent {
 - **AI-Powered Analysis**: All analysis via OpenAI GPT-4
 - **Comprehensive Coverage**: Market data, news, economic indicators
 
-## 🔐 Security
+## Security
 
 - API keys stored in environment variables
 - A2A communication via secure HTTP
@@ -317,7 +319,7 @@ export class CustomAgent {
 - Error handling prevents information leakage
 - Audited smart contracts for payment systems
 
-## 📊 Monitoring and Debugging
+## Monitoring and Debugging
 
 ### Agent Status
 
@@ -341,7 +343,7 @@ The platform includes comprehensive cost tracking:
 - Per-agent cost breakdown
 - Real-time cost reporting
 
-## 🚀 Deployment
+## Deployment
 
 ### Frontend Deployment (Vercel)
 
@@ -359,10 +361,8 @@ For production deployment:
 3. Set up environment variables
 4. Start with process manager (PM2, Docker, etc.)
 
-##  🏗️ Technical Architecture 
-For detailed technical architecture, please refer to [docs/TECHNICAL_ARCHITECTURE.md](docs/TECHNICAL_ARCHITECTURE.md).
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create feature branch: `git checkout -b feature/new-feature`
@@ -371,41 +371,14 @@ For detailed technical architecture, please refer to [docs/TECHNICAL_ARCHITECTUR
 5. Push: `git push origin feature/new-feature`
 6. Create Pull Request
 
-## 📝 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🆘 Support
+## Support
 
 - **Documentation**: Check this README and inline code comments
 - **Issues**: Create an issue on GitHub for bugs or feature requests
 - **Discussions**: Use GitHub Discussions for questions and ideas
 
-
-## 🏆 Features
-
-### AI-Powered Analysis
-- Real-time market data analysis
-- Technical indicator calculations
-- Sentiment analysis from news and social media
-- Macroeconomic trend analysis
-- Personalized investment recommendations
-
-### Professional Reports
-- PDF report generation
-- Structured data presentation
-- Cost tracking and transparency
-- Professional formatting
-
-### Payment Integration
-- x402 protocol for micro-payments
-- Commerce Payments for complex flows
-- Blockchain-based settlement
-- Audited smart contracts
-
-### Modern Architecture
-- A2A protocol for agent communication
-- TypeScript for type safety
-- Next.js for optimal performance
-- Tailwind CSS for beautiful UI
 
