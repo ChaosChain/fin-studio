@@ -1,185 +1,110 @@
 # Fin Studio - AI-Powered Investment Analysis Platform
 
-<div align="center">
-
-![Fin Studio](https://img.shields.io/badge/Fin%20Studio-AI%20Powered%20Investment%20Analysis-blue?style=for-the-badge&logo=typescript)
-
-**A modern fintech platform powered by AI agents using Google Cloud's A2A (Agent-to-Agent) protocol for seamless communication and collaboration, with integrated blockchain payment systems.**
-
-[Quick Start](#quick-start) • [AI Agents](#ai-agents) • [Payment Systems](#payment-systems) • [Tech Stack](#tech-stack) • [Documentation](#documentation)
-
-</div>
+Fin Studio is a modern, open source fintech platform that leverages advanced AI agents and blockchain payment systems to deliver comprehensive investment analysis. The platform is designed for extensibility, maintainability, and professional collaboration, with a focus on robust architecture and clear documentation.
 
 ---
 
 ## Overview
 
-Fin Studio is a comprehensive AI-powered investment analysis platform that combines advanced financial analysis with blockchain payment infrastructure. The platform features specialized AI agents that collaborate using the A2A protocol to provide real-time market insights, technical analysis, and investment recommendations.
+Fin Studio combines multi-agent AI analysis with integrated blockchain payments. Specialized AI agents communicate using Google Cloud's A2A (Agent-to-Agent) protocol, providing real-time market insights, technical analysis, macroeconomic research, and investment recommendations. The platform supports both HTTP-native and on-chain payment protocols for seamless financial operations.
 
 ### Key Features
 
-- **Multi-Agent AI System**: Four specialized AI agents working collaboratively
+- **Multi-Agent AI System**: Four specialized, collaborative AI agents
 - **Blockchain Payments**: Integrated x402 and Commerce Payments protocols
-- **Real-time Analysis**: Live market data and AI-powered insights
-- **Technical Analysis**: Advanced chart patterns and indicators
+- **Real-Time Analysis**: Live market data and AI-powered insights
+- **Technical Analysis**: Advanced charting and indicators
 - **Macro Research**: Economic indicators and global trends
 - **PDF Reports**: Professional-grade investment reports
-- **Modern UI**: Beautiful, responsive Next.js frontend
+- **Modern UI**: Responsive Next.js frontend
 
 ## AI Agents
 
-### Market Research Agent
-- **Port**: 8081
-- **Capabilities**: Market trend analysis, news sentiment, social media monitoring
-- **Output**: Comprehensive market insights and sentiment analysis
-
-### Macro Research Agent  
-- **Port**: 8082
-- **Capabilities**: Economic indicators, central bank policies, global trends
-- **Output**: Macroeconomic analysis and policy insights
-
-### Price Analysis Agent
-- **Port**: 8083
-- **Capabilities**: Real-time market data, technical analysis, chart patterns
-- **Output**: Price targets, risk metrics, trading signals
-
-### Insights Agent
-- **Port**: 8084
-- **Capabilities**: Coordination, report generation, personalized analysis
-- **Output**: Daily insights and investment recommendations
+- **Market Research Agent** (Port 8081): Market trend analysis, news sentiment, social media monitoring
+- **Macro Research Agent** (Port 8082): Economic indicators, central bank policies, global trends
+- **Price Analysis Agent** (Port 8083): Real-time market data, technical analysis, chart patterns
+- **Insights Agent** (Port 8084): Coordination, report generation, personalized analysis
 
 ## Payment Systems
 
-### x402 Protocol Integration
-- **Purpose**: HTTP-native payment protocol for micro-payments
-- **Features**: 1-line integration, 2-second settlement, $0.001 minimum
-- **Network**: Base Sepolia (testnet) and Base Mainnet
-
-### Commerce Payments Protocol
-- **Purpose**: On-chain "authorize and capture" payment flows
-- **Features**: Escrow-based payments, flexible fee structures
-- **Contracts**: Deployed on Base network with audited smart contracts
-
-## Tech Stack
-
-### Frontend
-- **Framework**: Next.js 14 with App Router
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS with Radix UI components
-- **Charts**: Recharts for data visualization
-- **PDF**: jsPDF for report generation
-
-### Backend
-- **Runtime**: Node.js with Express
-- **Protocol**: A2A (Agent-to-Agent) communication
-- **AI**: OpenAI GPT-4 API
-- **WebSockets**: Real-time agent communication
-
-### Blockchain
-- **Network**: Base Sepolia (testnet) / Base Mainnet
-- **Protocols**: x402, Commerce Payments
-- **Libraries**: viem, wagmi for Web3 integration
+- **x402 Protocol**: HTTP-native payment protocol for micro-payments (Base Sepolia testnet & Base Mainnet)
+- **Commerce Payments Protocol**: On-chain "authorize and capture" payment flows with escrow and flexible fees (Base network)
 
 ## Prerequisites
 
-- **Node.js**: 18+ 
+- **Node.js**: 18+
 - **Package Manager**: yarn (recommended) or npm
 - **OpenAI API Key**: Required for AI analysis
 - **Blockchain Wallet**: For payment testing (optional)
 
 ## Quick Start
 
-### 1. Clone the Repository
+1. **Clone the Repository**
+   ```bash
+   git clone https://github.com/ChaosChain/fin-studio
+   cd fin-studio
+   ```
+2. **Install Dependencies**
+   ```bash
+   yarn install
+   ```
+3. **Environment Setup**
+   - Copy the example environment file:
+     ```bash
+     cp env.local.example .env.local
+     ```
+   - Configure your environment variables in `.env.local`:
+     ```env
+     OPENAI_API_KEY=your_openai_api_key_here
+     AGENT_MANAGER_PORT=8080
+     NETWORK=base-sepolia
+     OPERATOR_ADDRESS=0x0000000000000000000000000000000000000000
+     OPERATOR_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000000
+     FACILITATOR_URL=https://x402.org/facilitator
+     ESCROW_CONTRACT_ADDRESS=0xBdEA0D1bcC5966192B070Fdf62aB4EF5b4420cff
+     DEVELOPMENT_MODE=true
+     BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
+     ```
+4. **Build the Application**
+   ```bash
+   yarn agents:build      # Build AI agents
+   yarn gateway:build     # Build gateway server
+   ```
+   > For payment testing, you may need ETH from the [Base Sepolia Faucet](https://www.alchemy.com/faucets/base-sepolia) and USDC from [Circle Faucet](https://faucet.circle.com/).
 
-```bash
-git clone <repository-url>
-cd fin-studio
-```
+5. **Start the Services** (in separate terminals):
+   - **AI Agents**
+     ```bash
+     yarn agents:start
+     ```
+     Starts all 4 AI agents (ports 8081-8084)
+   - **Gateway Server**
+     ```bash
+     yarn gateway:start
+     ```
+     Starts the HTTP gateway (port 8080)
+   - **Frontend**
+     ```bash
+     yarn dev
+     ```
+     Starts the Next.js frontend (port 3000)
 
-### 2. Install Dependencies
-
-```bash
-yarn install
-```
-
-### 3. Environment Setup
-
-Create a `.env.local` file:
-
-```bash
-cp env.local.example .env.local
-```
-
-Configure your environment variables:
-
-```env
-# OpenAI API Key (Required)
-OPENAI_API_KEY=your_openai_api_key_here
-
-# Agent Manager Configuration
-AGENT_MANAGER_PORT=8080
-
-# Payment System Configuration (Base Sepolia)
-NETWORK=base-sepolia
-OPERATOR_ADDRESS=0x0000000000000000000000000000000000000000
-OPERATOR_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000000
-FACILITATOR_URL=https://x402.org/facilitator
-ESCROW_CONTRACT_ADDRESS=0xBdEA0D1bcC5966192B070Fdf62aB4EF5b4420cff
-
-# Development Mode
-DEVELOPMENT_MODE=true
-
-# Base Sepolia RPC
-BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
-```
-
-### 4. Build the Application
-
-```bash
-# Build AI agents
-yarn agents:build
-
-# Build gateway server
-yarn gateway:build
-```
-
-You may need ETH on Base Sepolia Faucet via https://www.alchemy.com/faucets/base-sepolia and USDC on Base Sepolia via https://faucet.circle.com/ for testing the payment function.
-
-
-
-### 5. Start the Services
-
-You need to run three services in separate terminals:
-
-#### Terminal 1: AI Agents
-```bash
-yarn agents:start
-```
-Starts all 4 AI agents on ports 8081-8084
-
-#### Terminal 2: Gateway Server
-```bash
-yarn gateway:start
-```
-Starts the HTTP gateway on port 8080
-
-#### Terminal 3: Frontend
-```bash
-yarn dev
-```
-Starts the Next.js frontend on port 3000
-
-### 6. Access the Application
-
-- **Main Dashboard**: [http://localhost:3000](http://localhost:3000)
-- **Agent Dashboard**: [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
-- **Payment Demo**: [http://localhost:3000/demo](http://localhost:3000/demo)
+6. **Access the Application**
+   - Main Dashboard: [http://localhost:3000](http://localhost:3000)
+   - Agent Dashboard: [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
+   - Payment Demo: [http://localhost:3000/demo](http://localhost:3000/demo)
 
 ## Documentation
 
-For detailed technical architecture, please refer to [docs/TECHNICAL_ARCHITECTURE.md](docs/TECHNICAL_ARCHITECTURE.md).
+For technical architecture and further details, see [docs/TECHNICAL_ARCHITECTURE.md](docs/TECHNICAL_ARCHITECTURE.md).
 
-### Project Structure
+## Tech Stack
+
+**Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, Radix UI, Recharts, jsPDF  
+**Backend**: Node.js, Express, A2A protocol, OpenAI GPT-4 API, WebSockets  
+**Blockchain**: Base Sepolia/Mainnet, x402, Commerce Payments, viem, wagmi
+
+## Project Structure
 
 ```
 fin-studio/
@@ -201,30 +126,30 @@ fin-studio/
 └── docs/                      # Documentation
 ```
 
-### Available Scripts
+## Available Scripts
 
-| Script | Description |
-|--------|-------------|
-| `yarn dev` | Start frontend development server |
-| `yarn build` | Build frontend for production |
-| `yarn start` | Start production frontend server |
-| `yarn agents:build` | Compile TypeScript agents |
-| `yarn agents:start` | Start agent manager and all agents |
-| `yarn gateway:start` | Start HTTP gateway server |
-| `yarn lint` | Run ESLint |
-| `yarn type-check` | Run TypeScript type checking |
+| Script                | Description                        |
+|-----------------------|------------------------------------|
+| `yarn dev`            | Start frontend development server   |
+| `yarn build`          | Build frontend for production       |
+| `yarn start`          | Start production frontend server    |
+| `yarn agents:build`   | Compile TypeScript agents           |
+| `yarn agents:start`   | Start agent manager and all agents  |
+| `yarn gateway:start`  | Start HTTP gateway server           |
+| `yarn lint`           | Run ESLint                         |
+| `yarn type-check`     | Run TypeScript type checking        |
 
-### A2A Protocol Implementation
+## A2A Protocol Implementation
 
-The platform implements Google Cloud's A2A protocol:
+The platform implements Google Cloud's A2A protocol for agent communication:
 
-1. **Agent Registration**: Agents register with central registry
-2. **Service Discovery**: Agents discover capabilities dynamically
+1. **Agent Registration**: Agents register with a central registry
+2. **Service Discovery**: Agents dynamically discover capabilities
 3. **Message Routing**: HTTP-based message routing between agents
 4. **Error Handling**: Robust error handling and retry mechanisms
 5. **Monitoring**: Real-time agent status and metrics
 
-### Architecture Overview
+## Architecture Overview
 
 ```
 Frontend (Next.js) → Gateway Server → AI Agents
@@ -236,10 +161,9 @@ Port 3000            Port 8080    Ports 8081-8084
 
 ### x402 Protocol
 
-The x402 protocol enables HTTP-native payments:
+HTTP-native payments can be integrated as middleware:
 
 ```typescript
-// Server-side integration
 app.use(
   paymentMiddleware("0xYourAddress", { 
     "/your-endpoint": "$0.01" 
@@ -249,10 +173,9 @@ app.use(
 
 ### Commerce Payments
 
-For more complex payment flows:
+For advanced payment flows (authorize and capture):
 
 ```typescript
-// Authorize and capture pattern
 const authResult = await authorizePayment(payer, amount, token);
 const captureResult = await capturePayment(authId, amount);
 ```
@@ -266,9 +189,9 @@ const captureResult = await capturePayment(authId, amount);
 
 ### Adding New Agents
 
-1. Create agent class in `src/agents/`
+1. Create a new agent class in `src/agents/`
 2. Implement required interfaces from `src/types/a2a.ts`
-3. Register agent in `src/agents/manager.ts`
+3. Register the agent in `src/agents/manager.ts`
 4. Add port configuration
 
 Example:
@@ -299,13 +222,11 @@ export class CustomAgent {
 
 ### API Integration
 
-#### OpenAI Configuration
+- Obtain an OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+- Add it to `.env.local`
+- Monitor usage and costs
 
-1. Get API key from [OpenAI Platform](https://platform.openai.com/api-keys)
-2. Add to `.env.local`
-3. Monitor usage and costs
-
-#### Market Data Sources
+### Market Data Sources
 
 - **OpenAI Search**: Real-time market data and news
 - **AI-Powered Analysis**: All analysis via OpenAI GPT-4
@@ -313,72 +234,59 @@ export class CustomAgent {
 
 ## Security
 
-- API keys stored in environment variables
-- A2A communication via secure HTTP
-- Input validation on all agent interactions
-- Error handling prevents information leakage
-- Audited smart contracts for payment systems
+- Store API keys in environment variables
+- Use secure HTTP for A2A communication
+- Validate all agent inputs
+- Implement robust error handling to prevent information leakage
+- Use audited smart contracts for payment systems
 
 ## Monitoring and Debugging
 
-### Agent Status
-
-Monitor agent health via dashboard:
-- Real-time connection status
-- Message processing metrics
-- Error rates and logs
-
-### Debugging
-
-Enable debug logging:
-
-```bash
-DEBUG=fin-studio:* yarn agents:start
-```
-
-### Cost Tracking
-
-The platform includes comprehensive cost tracking:
-- OpenAI API usage monitoring
-- Per-agent cost breakdown
-- Real-time cost reporting
+- Monitor agent health and metrics via the dashboard
+- Enable debug logging for troubleshooting:
+  ```bash
+  DEBUG=fin-studio:* yarn agents:start
+  ```
+- Track OpenAI API usage and per-agent costs
 
 ## Deployment
 
-### Frontend Deployment (Vercel)
+### Frontend Deployment (Vercel or similar)
 
 ```bash
 yarn build
-# Deploy to Vercel or preferred platform
+# Deploy the output to Vercel or your preferred platform
 ```
 
 ### Agent Manager Deployment
 
-For production deployment:
-
 1. Build agents: `yarn agents:build`
-2. Deploy `dist/` folder to server
+2. Deploy the `dist/` folder to your server
 3. Set up environment variables
-4. Start with process manager (PM2, Docker, etc.)
-
+4. Start with a process manager (e.g., PM2, Docker)
 
 ## Contributing
 
+We welcome contributions from the community! To maintain high code quality and project integrity, please follow these guidelines:
+
 1. Fork the repository
-2. Create feature branch: `git checkout -b feature/new-feature`
-3. Make changes and test thoroughly
-4. Commit: `git commit -am 'Add new feature'`
-5. Push: `git push origin feature/new-feature`
-6. Create Pull Request
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Make changes and add tests as appropriate
+4. Ensure all checks pass: `yarn lint && yarn type-check`
+5. Commit: `git commit -am 'Add your feature'`
+6. Push: `git push origin feature/your-feature`
+7. Open a Pull Request with a clear description
+
+Please review the [CONTRIBUTING.md](payment/x402/CONTRIBUTING.md) for more details on our contribution process and code of conduct.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ## Support
 
-- **Documentation**: Check this README and inline code comments
-- **Issues**: Create an issue on GitHub for bugs or feature requests
+- **Documentation**: See this README and inline code comments
+- **Issues**: Open an issue on GitHub for bugs or feature requests
 - **Discussions**: Use GitHub Discussions for questions and ideas
 
 
