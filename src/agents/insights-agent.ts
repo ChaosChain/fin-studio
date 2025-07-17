@@ -12,6 +12,7 @@ import {
   Sentiment,
   RequestStatus
 } from '@/types/fintech';
+import { costTracker, extractTokenUsage, logApiCallDetails } from '@/lib/cost-tracker';
 
 export class InsightsAgent {
   private openai: OpenAI;
@@ -21,7 +22,7 @@ export class InsightsAgent {
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY || ''
     });
-    
+
     this.identity = {
       id: 'insights-agent',
       name: 'Insights Agent',
@@ -46,26 +47,36 @@ export class InsightsAgent {
 
   getHandlers(): Map<string, A2AHandlerFunction> {
     const handlers = new Map<string, A2AHandlerFunction>();
-    
+
     handlers.set('generate_daily_insights', this.generateDailyInsights.bind(this));
+    handlers.set('generate_daily_insight', this.generateDailyInsights.bind(this)); // Alias for compatibility
     handlers.set('create_market_summary', this.createMarketSummary.bind(this));
     handlers.set('synthesize_analysis', this.synthesizeAnalysis.bind(this));
     handlers.set('generate_report', this.generateReport.bind(this));
     handlers.set('create_alert', this.createAlert.bind(this));
     handlers.set('get_portfolio_insights', this.getPortfolioInsights.bind(this));
     handlers.set('aggregate_data', this.aggregateData.bind(this));
-    
+
     return handlers;
   }
 
   private async generateDailyInsights(message: A2AMessage): Promise<A2AMessage> {
     try {
       const { focus, timeframe } = message.payload.data || {};
-      
+
       // Use OpenAI to generate comprehensive daily insights
       const searchQuery = `Generate comprehensive daily market insights for ${focus || 'global markets'}. Include key market movements, economic developments, sector performance, and investment implications for ${timeframe || 'today'}.`;
+      const startTime = Date.now();
+      console.log('🚀 Insights Agent - Making OpenAI API call:', {
+        "model": "gpt-4.1",
+        action: 'generate_daily_insights',
+        maxTokens: 4096,
+        temperature: 0.7,
+        promptLength: searchQuery.length
+      });
+
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4",
+        "model": "gpt-4.1",
         messages: [
           {
             role: "system",
@@ -78,9 +89,29 @@ export class InsightsAgent {
         ],
         max_tokens: 2000,
       });
+      const duration = Date.now() - startTime;
+
+      console.log('✅ Insights Agent - OpenAI API response received:', {
+        duration,
+        hasUsage: !!response.usage,
+        responseLength: response.choices[0]?.message?.content?.length || 0
+      });
+
+      // Track costs
+      const usage = extractTokenUsage(response);
+      const requestCost = costTracker.trackRequest(
+        this.identity.id,
+        this.identity.name,
+        this.generateId(),
+        'generate_daily_insights',
+        'gpt-4',
+        usage,
+        duration
+      );
+      console.log(`💰 Insights Agent - generate_daily_insights: ${costTracker.formatCost(requestCost.totalCost)} (${costTracker.formatTokens(requestCost.totalTokens)} tokens)`);
 
       const insights = this.parseInsights(response.choices[0].message.content || '');
-      
+
       return {
         id: this.generateId(),
         type: 'response' as any,
@@ -94,7 +125,8 @@ export class InsightsAgent {
             keyPoints: insights.keyPoints,
             marketOutlook: insights.outlook,
             recommendations: insights.recommendations,
-            riskFactors: insights.risks
+            riskFactors: insights.risks,
+            costInfo: requestCost
           },
           context: message.payload.context
         },
@@ -107,14 +139,143 @@ export class InsightsAgent {
     }
   }
 
+  // This is the main method called by the workflow
+  async generate_daily_insight(message: A2AMessage): Promise<A2AMessage> {
+    try {
+      const { focus, timeframe, analysisData } = message.payload.data || {};
+
+      // Get today's date in the format needed for the report
+      const today = new Date();
+      const dateString = today.toLocaleDateString('en-US', { 
+        month: 'long', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+
+      // Use OpenAI to generate comprehensive daily insights
+      const searchQuery = `
+Generate daily market insights for ${focus || 'global markets'} covering ${timeframe || 'today'} (${dateString}).
+
+Please provide structured analysis with the following format:
+
+**MARKET OVERVIEW:**
+- Key Market Movements: [specific index changes and percentages]
+- Major Index Performance: [S&P 500, NASDAQ, Dow Jones specific numbers]
+- Sector Rotation: [which sectors moving up/down with percentages]
+- Market Sentiment: [bullish/bearish/neutral with reasoning]
+
+**ECONOMIC DEVELOPMENTS:**
+- Economic Data Releases: [specific data points and their impact]
+- Central Bank Signals: [specific policy announcements or hints]
+- Geopolitical Events: [specific events and market impact]
+- Currency Movements: [specific currency pairs and movements]
+
+**SECTOR ANALYSIS:**
+- Best Performing Sectors: [specific sectors with percentages]
+- Worst Performing Sectors: [specific sectors with percentages]
+- Individual Stock Highlights: [specific stocks and their performance]
+- Earnings Developments: [specific earnings announcements]
+
+**TECHNICAL INSIGHTS:**
+- Key Technical Levels: [specific support/resistance levels]
+- Chart Patterns: [specific patterns identified]
+- Technical Signals: [specific buy/sell signals]
+- Trend Analysis: [specific trend directions]
+
+**INVESTMENT IMPLICATIONS:**
+- Key Investment Themes: [specific themes to focus on]
+- Risk Factors: [specific risks to watch]
+- Positioning Recommendations: [specific actions to take]
+- Near-term Outlook: [specific predictions for next few days]
+
+Provide exact numbers, specific percentages, and actionable insights. Avoid generic statements. Use the current date ${dateString} in your analysis.
+      `;
+
+      const startTime = Date.now();
+
+      const response = await this.openai.chat.completions.create({
+        "model": "gpt-4.1",
+        messages: [
+          {
+            role: "system",
+            content: "You are a senior market analyst. Generate comprehensive daily insights combining market data, economic trends, and investment recommendations."
+          },
+          {
+            role: "user",
+            content: searchQuery
+          }
+        ],
+        max_tokens: 2000,
+        temperature: 0.7,
+      });
+      const duration = Date.now() - startTime;
+
+      // Log detailed API call information
+      logApiCallDetails(
+        this.identity.name,
+        'generate_daily_insight',
+        'gpt-4',
+        searchQuery,
+        response,
+        duration
+      );
+
+      // Track costs
+      const usage = extractTokenUsage(response);
+      const requestCost = costTracker.trackRequest(
+        this.identity.id,
+        this.identity.name,
+        this.generateId(),
+        'generate_daily_insight',
+        'gpt-4',
+        usage,
+        duration
+      );
+      console.log(`💰 Insights Agent - generate_daily_insight: ${costTracker.formatCost(requestCost.totalCost)} (${costTracker.formatTokens(requestCost.totalTokens)} tokens)`);
+
+      const insights = this.parseInsights(response.choices[0].message.content || '');
+
+      // Embed cost information in response
+      const responseWithCost = {
+        id: this.generateId(),
+        type: 'response' as any,
+        timestamp: new Date(),
+        source: this.identity,
+        target: message.source,
+        payload: {
+          action: 'daily_insight_complete',
+          data: {
+            focus: focus || 'global markets',
+            timeframe: timeframe || 'today',
+            insights,
+            keyHighlights: insights.keyHighlights,
+            marketOutlook: insights.marketOutlook,
+            recommendations: insights.recommendations,
+            riskFactors: insights.riskFactors,
+            costInfo: requestCost
+          },
+          context: message.payload.context
+        },
+        metadata: {
+          responseToMessageId: message.id
+        }
+      };
+
+      return responseWithCost;
+    } catch (error) {
+      console.error('Insights Agent - generate_daily_insight error:', error);
+      return this.createErrorResponse(message, error as Error);
+    }
+  }
+
   private async createMarketSummary(message: A2AMessage): Promise<A2AMessage> {
     try {
       const { markets, timeframe } = message.payload.data || {};
-      
+
       // Use OpenAI to create market summary
       const searchQuery = `Create a comprehensive market summary for ${markets?.join(', ') || 'major global markets'} covering ${timeframe || 'today'}. Include index performance, sector rotation, volume analysis, and key market drivers.`;
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4",
+        "model": "gpt-4.1",
         messages: [
           {
             role: "system",
@@ -129,7 +290,7 @@ export class InsightsAgent {
       });
 
       const summary = this.parseMarketSummary(response.choices[0].message.content || '');
-      
+
       return {
         id: this.generateId(),
         type: 'response' as any,
@@ -159,11 +320,11 @@ export class InsightsAgent {
   private async synthesizeAnalysis(message: A2AMessage): Promise<A2AMessage> {
     try {
       const { analysisData, focusAreas } = message.payload.data || {};
-      
+
       // Use OpenAI to synthesize analysis from multiple sources
       const synthesisQuery = `Synthesize the following analysis data into coherent investment insights: ${JSON.stringify(analysisData)}. Focus on ${focusAreas?.join(', ') || 'key investment themes and risk factors'}.`;
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4",
+        "model": "gpt-4.1",
         messages: [
           {
             role: "system",
@@ -178,7 +339,7 @@ export class InsightsAgent {
       });
 
       const synthesis = this.parseSynthesis(response.choices[0].message.content || '');
-      
+
       return {
         id: this.generateId(),
         type: 'response' as any,
@@ -208,11 +369,11 @@ export class InsightsAgent {
   private async generateReport(message: A2AMessage): Promise<A2AMessage> {
     try {
       const { reportType, data, audience } = message.payload.data || {};
-      
+
       // Use OpenAI to generate formatted report
       const reportQuery = `Generate a ${reportType || 'comprehensive market'} report for ${audience || 'institutional investors'}. Include the following data: ${JSON.stringify(data)}. Format as a professional investment report with executive summary, key findings, and recommendations.`;
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4",
+        "model": "gpt-4.1",
         messages: [
           {
             role: "system",
@@ -227,7 +388,7 @@ export class InsightsAgent {
       });
 
       const report = this.parseReport(response.choices[0].message.content || '');
-      
+
       return {
         id: this.generateId(),
         type: 'response' as any,
@@ -257,11 +418,11 @@ export class InsightsAgent {
   private async createAlert(message: A2AMessage): Promise<A2AMessage> {
     try {
       const { alertType, thresholds, symbols } = message.payload.data || {};
-      
+
       // Use OpenAI to create intelligent alert
       const alertQuery = `Create an intelligent ${alertType || 'market'} alert for ${symbols?.join(', ') || 'major market instruments'}. Monitor for ${JSON.stringify(thresholds)} and provide context and recommendations when triggered.`;
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4",
+        "model": "gpt-4.1",
         messages: [
           {
             role: "system",
@@ -276,7 +437,7 @@ export class InsightsAgent {
       });
 
       const alert = this.parseAlert(response.choices[0].message.content || '');
-      
+
       return {
         id: this.generateId(),
         type: 'response' as any,
@@ -306,11 +467,11 @@ export class InsightsAgent {
   private async getPortfolioInsights(message: A2AMessage): Promise<A2AMessage> {
     try {
       const { portfolioData, benchmarks } = message.payload.data || {};
-      
+
       // Use OpenAI to analyze portfolio insights
       const portfolioQuery = `Analyze portfolio performance and provide insights: ${JSON.stringify(portfolioData)}. Compare against ${benchmarks?.join(', ') || 'major market indices'} and provide optimization recommendations.`;
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4",
+        "model": "gpt-4.1",
         messages: [
           {
             role: "system",
@@ -325,7 +486,7 @@ export class InsightsAgent {
       });
 
       const insights = this.parsePortfolioInsights(response.choices[0].message.content || '');
-      
+
       return {
         id: this.generateId(),
         type: 'response' as any,
@@ -355,11 +516,11 @@ export class InsightsAgent {
   private async aggregateData(message: A2AMessage): Promise<A2AMessage> {
     try {
       const { dataSources, aggregationType } = message.payload.data || {};
-      
+
       // Use OpenAI to aggregate and analyze data
       const aggregationQuery = `Aggregate and analyze data from multiple sources: ${JSON.stringify(dataSources)}. Perform ${aggregationType || 'comprehensive'} aggregation and identify key patterns, trends, and insights.`;
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4",
+        "model": "gpt-4.1",
         messages: [
           {
             role: "system",
@@ -374,7 +535,7 @@ export class InsightsAgent {
       });
 
       const aggregation = this.parseAggregation(response.choices[0].message.content || '');
-      
+
       return {
         id: this.generateId(),
         type: 'response' as any,
@@ -403,84 +564,158 @@ export class InsightsAgent {
 
   // Helper methods for parsing OpenAI responses
   private parseInsights(content: string): any {
+    // Extract market overview
+    const marketOverview = this.extractStructuredSection(content, 'MARKET OVERVIEW');
+    const keyMovements = this.extractStructuredSection(content, 'Key Market Movements');
+    const indexPerformance = this.extractStructuredSection(content, 'Major Index Performance');
+    const sectorRotation = this.extractStructuredSection(content, 'Sector Rotation');
+    const marketSentiment = this.extractStructuredSection(content, 'Market Sentiment');
+
+    // Extract economic developments
+    const economicDevelopments = this.extractStructuredSection(content, 'ECONOMIC DEVELOPMENTS');
+    const dataReleases = this.extractStructuredSection(content, 'Economic Data Releases');
+    const centralBankSignals = this.extractStructuredSection(content, 'Central Bank Signals');
+
+    // Extract sector analysis
+    const sectorAnalysis = this.extractStructuredSection(content, 'SECTOR ANALYSIS');
+    const bestSectors = this.extractStructuredSection(content, 'Best Performing Sectors');
+    const worstSectors = this.extractStructuredSection(content, 'Worst Performing Sectors');
+
+    // Extract investment implications
+    const investmentImplications = this.extractStructuredSection(content, 'INVESTMENT IMPLICATIONS');
+    const keyThemes = this.extractBulletPoints(content, 'Key Investment Themes');
+    const riskFactors = this.extractBulletPoints(content, 'Risk Factors');
+    const recommendations = this.extractBulletPoints(content, 'Positioning Recommendations');
+
     return {
-      summary: this.extractSection(content, 'summary') || content.substring(0, 300),
-      keyPoints: this.extractKeyPoints(content),
-      outlook: this.extractOutlook(content),
-      recommendations: this.extractRecommendations(content),
-      risks: this.extractRisks(content)
+      insights: content.substring(0, 500), // First 500 characters as main insight
+      keyPoints: keyThemes.length > 0 ? keyThemes : this.extractKeyPoints(content),
+      marketOutlook: marketSentiment || 'Stable market outlook',
+      recommendations: recommendations.length > 0 ? recommendations : ['Analysis provided by AI'],
+      riskFactors: riskFactors.length > 0 ? riskFactors : ['Analysis provided']
     };
   }
 
   private parseMarketSummary(content: string): any {
     return {
-      overview: this.extractSection(content, 'overview') || content.substring(0, 300),
-      performance: this.extractPerformance(content),
-      drivers: this.extractDrivers(content),
-      sectors: this.extractSectors(content),
-      outlook: this.extractOutlook(content)
+      overview: this.extractStructuredSection(content, 'overview') || content.substring(0, 300),
+      performance: this.extractStructuredSection(content, 'performance') || 'Market performance analysis',
+      drivers: this.extractBulletPoints(content, 'drivers'),
+      sectors: this.extractBulletPoints(content, 'sectors'),
+      outlook: this.extractStructuredSection(content, 'outlook') || 'Market outlook assessment'
     };
   }
 
   private parseSynthesis(content: string): any {
     return {
-      summary: this.extractSection(content, 'summary') || content.substring(0, 300),
-      themes: this.extractThemes(content),
-      consensus: this.extractConsensus(content),
-      conflicts: this.extractConflicts(content),
-      recommendations: this.extractRecommendations(content)
+      summary: this.extractStructuredSection(content, 'summary') || content.substring(0, 300),
+      themes: this.extractBulletPoints(content, 'themes'),
+      consensus: this.extractStructuredSection(content, 'consensus') || 'Market consensus analysis',
+      conflicts: this.extractBulletPoints(content, 'conflicts'),
+      recommendations: this.extractBulletPoints(content, 'recommendations')
     };
   }
 
   private parseReport(content: string): any {
     return {
       content: content,
-      summary: this.extractSection(content, 'executive summary') || content.substring(0, 200),
-      findings: this.extractFindings(content),
-      recommendations: this.extractRecommendations(content),
-      appendix: this.extractAppendix(content)
+      summary: this.extractStructuredSection(content, 'executive summary') || 'Executive summary',
+      findings: this.extractBulletPoints(content, 'findings'),
+      recommendations: this.extractBulletPoints(content, 'recommendations'),
+      appendix: this.extractStructuredSection(content, 'appendix') || 'Supporting data'
     };
   }
 
   private parseAlert(content: string): any {
     return {
-      config: this.extractAlertConfig(content),
-      message: this.extractSection(content, 'message') || content.substring(0, 200),
-      recommendations: this.extractRecommendations(content)
+      config: this.extractStructuredSection(content, 'configuration') || 'Alert configuration',
+      message: this.extractStructuredSection(content, 'message') || 'Alert message',
+      recommendations: this.extractBulletPoints(content, 'recommendations')
     };
   }
 
   private parsePortfolioInsights(content: string): any {
     return {
-      performance: this.extractPerformance(content),
-      risk: this.extractRiskAnalysis(content),
-      attribution: this.extractAttribution(content),
-      recommendations: this.extractRecommendations(content),
-      rebalancing: this.extractRebalancing(content)
+      performance: this.extractStructuredSection(content, 'performance') || 'Portfolio performance analysis',
+      risk: this.extractStructuredSection(content, 'risk') || 'Risk assessment',
+      attribution: this.extractStructuredSection(content, 'attribution') || 'Performance attribution',
+      recommendations: this.extractBulletPoints(content, 'recommendations'),
+      rebalancing: this.extractStructuredSection(content, 'rebalancing') || 'Rebalancing recommendations'
     };
   }
 
   private parseAggregation(content: string): any {
     return {
-      data: this.extractAggregatedData(content),
-      patterns: this.extractPatterns(content),
-      trends: this.extractTrends(content),
-      insights: this.extractInsights(content),
-      confidence: this.extractConfidence(content)
+      data: this.extractStructuredSection(content, 'data') || 'Aggregated data',
+      patterns: this.extractBulletPoints(content, 'patterns'),
+      trends: this.extractBulletPoints(content, 'trends'),
+      insights: this.extractBulletPoints(content, 'insights'),
+      confidence: this.extractNumericValue(content, 'confidence', 7.5)
     };
   }
 
-  // Helper methods for extracting specific data
-  private extractSection(content: string, sectionName: string): string | null {
-    const regex = new RegExp(`${sectionName}:?\\s*([^\\n]+)`, 'i');
-    const match = content.match(regex);
-    return match ? match[1].trim() : null;
+  // Enhanced helper methods for better data extraction
+  private extractStructuredSection(content: string, sectionName: string): string | null {
+    const patterns = [
+      new RegExp(`\\*\\*${sectionName}:?\\*\\*([^*]+)`, 'i'),
+      new RegExp(`${sectionName}:?\\s*([^\\n]+(?:\\n(?!\\*\\*|\\d+\\.|-).*)*?)`, 'i'),
+      new RegExp(`${sectionName}:?\\s*([^\\n]+)`, 'i')
+    ];
+
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match) {
+        return match[1].trim();
+      }
+    }
+
+    return null;
+  }
+
+  private extractBulletPoints(content: string, context: string): string[] {
+    const contextSection = this.extractStructuredSection(content, context);
+    if (!contextSection) {
+      return this.extractKeyPoints(content);
+    }
+
+    const points: string[] = [];
+    const lines = contextSection.split('\n');
+
+    for (const line of lines) {
+      if (line.match(/^\s*[-*•]\s*/) || line.match(/^\s*\d+\.\s*/)) {
+        const point = line.replace(/^\s*[-*•]\s*/, '').replace(/^\s*\d+\.\s*/, '').trim();
+        if (point && point.length > 5) {
+          points.push(point);
+        }
+      }
+    }
+
+    return points.length > 0 ? points : ['Analysis provided'];
+  }
+
+  private extractNumericValue(content: string, metric: string, defaultValue: number): number {
+    const patterns = [
+      new RegExp(`${metric}:?\\s*([0-9.]+)`, 'i'),
+      new RegExp(`${metric}.*?([0-9.]+)`, 'i')
+    ];
+
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match) {
+        const value = parseFloat(match[1]);
+        if (!isNaN(value)) {
+          return value;
+        }
+      }
+    }
+
+    return defaultValue;
   }
 
   private extractKeyPoints(content: string): string[] {
     const points: string[] = [];
     const lines = content.split('\n');
-    
+
     for (const line of lines) {
       if (line.match(/^\d+\.|^-|^\*/)) {
         const point = line.replace(/^\d+\.|^-|^\*/, '').trim();
@@ -489,134 +724,8 @@ export class InsightsAgent {
         }
       }
     }
-    
-    return points.length > 0 ? points : ['Market analysis provided'];
-  }
 
-  private extractOutlook(content: string): string {
-    return this.extractSection(content, 'outlook') || 'Neutral';
-  }
-
-  private extractRecommendations(content: string): string[] {
-    const recommendations = this.extractSection(content, 'recommendations');
-    return recommendations ? recommendations.split(',').map(r => r.trim()) : ['Monitor markets closely'];
-  }
-
-  private extractRisks(content: string): string[] {
-    const risks = this.extractSection(content, 'risks');
-    return risks ? risks.split(',').map(r => r.trim()) : ['Market volatility'];
-  }
-
-  private extractPerformance(content: string): { [key: string]: string } {
-    const performance: { [key: string]: string } = {};
-    const performancePattern = /([A-Z]{2,5}|S&P|Dow|Nasdaq):\s*([+-]?\d+\.?\d*%?)/g;
-    let match;
-    
-    while ((match = performancePattern.exec(content)) !== null) {
-      performance[match[1]] = match[2];
-    }
-    
-    return Object.keys(performance).length > 0 ? performance : { 'Market': '+0.5%' };
-  }
-
-  private extractDrivers(content: string): string[] {
-    const drivers = this.extractSection(content, 'drivers');
-    return drivers ? drivers.split(',').map(d => d.trim()) : ['Economic data', 'Corporate earnings'];
-  }
-
-  private extractSectors(content: string): { [key: string]: string } {
-    const sectors: { [key: string]: string } = {};
-    const sectorPattern = /(Technology|Healthcare|Finance|Energy|Utilities|Consumer):\s*([^\n,]+)/gi;
-    let match;
-    
-    while ((match = sectorPattern.exec(content)) !== null) {
-      sectors[match[1]] = match[2].trim();
-    }
-    
-    return Object.keys(sectors).length > 0 ? sectors : { 'Technology': 'Mixed' };
-  }
-
-  private extractThemes(content: string): string[] {
-    const themes = this.extractSection(content, 'themes');
-    return themes ? themes.split(',').map(t => t.trim()) : ['Market rotation', 'Interest rate sensitivity'];
-  }
-
-  private extractConsensus(content: string): string {
-    return this.extractSection(content, 'consensus') || 'Mixed views';
-  }
-
-  private extractConflicts(content: string): string[] {
-    const conflicts = this.extractSection(content, 'conflicts');
-    return conflicts ? conflicts.split(',').map(c => c.trim()) : ['Differing growth expectations'];
-  }
-
-  private extractFindings(content: string): string[] {
-    const findings = this.extractSection(content, 'findings');
-    return findings ? findings.split(',').map(f => f.trim()) : ['Market conditions stable'];
-  }
-
-  private extractAppendix(content: string): string {
-    return this.extractSection(content, 'appendix') || 'Additional data available upon request';
-  }
-
-  private extractAlertConfig(content: string): any {
-    return {
-      type: 'market',
-      frequency: 'daily',
-      triggers: ['price movement > 2%', 'volume spike > 50%']
-    };
-  }
-
-  private extractRiskAnalysis(content: string): any {
-    return {
-      volatility: this.extractSection(content, 'volatility') || '15%',
-      beta: this.extractSection(content, 'beta') || '1.2',
-      maxDrawdown: this.extractSection(content, 'drawdown') || '12%'
-    };
-  }
-
-  private extractAttribution(content: string): any {
-    return {
-      selection: this.extractSection(content, 'selection') || '+1.2%',
-      allocation: this.extractSection(content, 'allocation') || '+0.8%',
-      interaction: this.extractSection(content, 'interaction') || '+0.3%'
-    };
-  }
-
-  private extractRebalancing(content: string): any {
-    return {
-      frequency: 'quarterly',
-      triggers: ['drift > 5%', 'market signals'],
-      recommendations: this.extractRecommendations(content)
-    };
-  }
-
-  private extractAggregatedData(content: string): any {
-    return {
-      summary: content.substring(0, 200),
-      dataPoints: this.extractKeyPoints(content).length,
-      quality: 'high'
-    };
-  }
-
-  private extractPatterns(content: string): string[] {
-    const patterns = this.extractSection(content, 'patterns');
-    return patterns ? patterns.split(',').map(p => p.trim()) : ['Upward trend', 'Cyclical rotation'];
-  }
-
-  private extractTrends(content: string): string[] {
-    const trends = this.extractSection(content, 'trends');
-    return trends ? trends.split(',').map(t => t.trim()) : ['Bullish momentum', 'Sector rotation'];
-  }
-
-  private extractInsights(content: string): string[] {
-    const insights = this.extractSection(content, 'insights');
-    return insights ? insights.split(',').map(i => i.trim()) : ['Market remains resilient'];
-  }
-
-  private extractConfidence(content: string): number {
-    const confidenceMatch = content.match(/confidence:?\s*(\d+)/i);
-    return confidenceMatch ? parseInt(confidenceMatch[1]) / 100 : 0.8;
+    return points.length > 0 ? points : ['Analysis provided by AI'];
   }
 
   private createErrorResponse(originalMessage: A2AMessage, error: Error): A2AMessage {

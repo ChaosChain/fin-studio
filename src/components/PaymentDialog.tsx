@@ -196,30 +196,30 @@ export function PaymentDialog({
               </button>
             ) : (
               <>
-                <button
-                  onClick={onClose}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handlePayment}
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handlePayment}
                   disabled={isProcessing}
-                  className={`flex-1 px-4 py-2 rounded-md text-white font-medium ${
+              className={`flex-1 px-4 py-2 rounded-md text-white font-medium ${
                     isProcessing
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-700'
-                  }`}
-                >
-                  {isProcessing ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
-                      Processing...
-                    </div>
-                  ) : (
-                    `Pay $${amount.toFixed(3)}`
-                  )}
-                </button>
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              {isProcessing ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                  Processing...
+                </div>
+              ) : (
+                `Pay $${amount.toFixed(3)}`
+              )}
+            </button>
               </>
             )}
           </div>

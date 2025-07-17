@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { config } from 'dotenv';
 import { A2AAgent } from '@/lib/a2a/agent';
 import { MarketResearchAgent } from './market-research-agent';
 import { MacroResearchAgent } from './macro-research-agent';
@@ -16,6 +17,9 @@ import {
   A2AMetrics
 } from '@/types/a2a';
 import { PaymentMiddlewareConfig } from '@/types/payment';
+
+// Load environment variables from .env.local
+config({ path: '.env.local' });
 
 export class AgentManager extends EventEmitter {
   private agents: Map<string, any>;

@@ -176,3 +176,6 @@ Cargo.lock
 # Local configuration files
 config.local.json
 *.local.json 
+
+# Simulation Test
+simulation/

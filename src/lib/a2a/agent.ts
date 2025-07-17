@@ -1,6 +1,8 @@
 import { EventEmitter } from 'events';
 import { v4 as uuidv4 } from 'uuid';
 import * as WebSocket from 'ws';
+import express from 'express';
+import cors from 'cors';
 import {
   A2AMessage,
   A2AMessageType,
@@ -19,6 +21,7 @@ export class A2AAgent extends EventEmitter {
   private handlers: Map<string, A2AHandlerFunction>;
   private middleware: A2AMiddleware[];
   private server?: WebSocket.Server;
+  private httpServer?: any;
   private clients: Map<string, WebSocket>;
   private status: A2AAgentStatus;
   private heartbeatInterval?: NodeJS.Timeout;
@@ -56,8 +59,67 @@ export class A2AAgent extends EventEmitter {
 
   async start(port: number = 8080): Promise<void> {
     try {
+      // Start WebSocket server
       this.server = new WebSocket.Server({ port });
       this.status = A2AAgentStatus.ACTIVE;
+
+      // Set up HTTP server on the same port
+      const app = express();
+      app.use(cors());
+      app.use(express.json());
+
+      // HTTP endpoint for agent communication
+      app.post('/message', async (req, res) => {
+        try {
+          const { action, data } = req.body;
+          
+          // Create A2A message from HTTP request
+          const message: A2AMessage = {
+            id: uuidv4(),
+            type: A2AMessageType.REQUEST,
+            timestamp: new Date(),
+            source: { id: 'gateway', name: 'Gateway' } as AgentIdentity,
+            target: this.identity,
+            payload: {
+              action,
+              data,
+              context: {}
+            }
+          };
+
+          console.log(`📥 ${this.identity.name} - HTTP request received:`, { action, data });
+          
+          // Process the message
+          const response = await this.processMessage(message, 'http-client');
+          
+          if (response) {
+            console.log(`📤 ${this.identity.name} - HTTP response:`, response.payload.data);
+            res.json(response.payload.data);
+          } else {
+            res.json({ success: true, message: 'Request processed' });
+          }
+        } catch (error) {
+          console.error(`❌ ${this.identity.name} - HTTP error:`, error);
+          res.status(500).json({ 
+            success: false, 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+          });
+        }
+      });
+
+      // Health check endpoint
+      app.get('/health', (req, res) => {
+        res.json({ 
+          status: 'healthy', 
+          agent: this.identity.name,
+          capabilities: this.identity.capabilities 
+        });
+      });
+
+      // Start HTTP server
+      this.httpServer = app.listen(port + 1000, () => {
+        console.log(`🌐 ${this.identity.name} - HTTP server on port ${port + 1000}`);
+      });
 
       this.server.on('connection', (ws: WebSocket, req) => {
         const clientId = uuidv4();
@@ -102,6 +164,10 @@ export class A2AAgent extends EventEmitter {
       this.server.close();
     }
 
+    if (this.httpServer) {
+      this.httpServer.close();
+    }
+
     this.clients.forEach(client => {
       client.terminate();
     });
@@ -129,7 +195,7 @@ export class A2AAgent extends EventEmitter {
     }
   }
 
-  private async processMessage(message: A2AMessage, clientId: string): Promise<void> {
+  private async processMessage(message: A2AMessage, clientId: string): Promise<A2AMessage | null> {
     const handler = this.handlers.get(message.payload.action);
     
     if (!handler) {
@@ -138,16 +204,19 @@ export class A2AAgent extends EventEmitter {
         'UNKNOWN_ACTION',
         `No handler found for action: ${message.payload.action}`
       );
+      if (clientId !== 'http-client') {
       await this.sendMessage(errorResponse, clientId);
-      return;
+      }
+      return errorResponse;
     }
 
     const response = await handler(message);
-    if (response) {
+    if (response && clientId !== 'http-client') {
       await this.sendMessage(response, clientId);
     }
 
     this.emit('message_processed', { message, clientId });
+    return response || null;
   }
 
   private async sendMessage(message: A2AMessage, clientId: string): Promise<void> {

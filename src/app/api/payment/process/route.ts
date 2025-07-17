@@ -148,7 +148,13 @@ export async function POST(request: NextRequest) {
 
     // Convert amount to wei
     const amountWei = parseUnits(amount.toString(), 6);
-    const recipient = '0xeaec2727B4a79d77f0C0721e6631EAD0C730aD0d' as `0x${string}`; // Test recipient
+    const recipient = process.env.AGENT_WALLET_ADDRESS as `0x${string}`;
+    if (!recipient) {
+      return NextResponse.json(
+        { success: false, error: 'No agent wallet address configured' },
+        { status: 500 }
+      );
+    }
 
     // Step 1: Check and approve USDC if needed
     let approvalTxHash = '' as `0x${string}`;

@@ -70,27 +70,61 @@ export class A2AHttpGateway {
   }
 
   private async simulateAgentResponse(agentId: string, action: string, data: any) {
-    // Simulate processing delay
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+    try {
+      // Get agent endpoint - use HTTP ports (WebSocket port + 1000)
+      const agent = this.agents.get(agentId);
+      if (!agent) {
+        throw new Error(`Agent ${agentId} not found`);
+      }
 
+      // Use HTTP port (WebSocket port + 1000)
+      const httpPort = agent.port + 1000;
+      const httpUrl = `http://localhost:${httpPort}`;
+
+      console.log(`🔗 Gateway - Forwarding to ${agentId} at ${httpUrl}`);
+      
+      // Call the actual agent via HTTP
+      const response = await fetch(`${httpUrl}/message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action,
+          data
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Agent ${agentId} request failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log(`✅ Gateway - Response from ${agentId}:`, result);
+      
+      return {
+        success: true,
+        agent: agentId,
+        action,
+        timestamp: new Date().toISOString(),
+        data: result
+      };
+    } catch (error) {
+      console.error(`❌ Gateway - Error calling agent ${agentId}:`, error);
+      
+      // Fallback to simulation if agent is not available
+      console.log(`⚠️ Gateway - Falling back to simulation for ${agentId}`);
+      return this.fallbackSimulation(agentId, action, data);
+    }
+  }
+
+  private fallbackSimulation(agentId: string, action: string, data: any) {
+    // Simulate processing delay
     const timestamp = new Date().toISOString();
     const symbols = data?.symbols || ['AAPL', 'GOOGL', 'MSFT', 'TSLA'];
 
     switch (agentId) {
       case 'market-research-agent':
-        return this.simulateMarketResearch(action, symbols, timestamp);
-      case 'macro-research-agent':
-        return this.simulateMacroResearch(action, symbols, timestamp);
-      case 'price-analysis-agent':
-        return this.simulatePriceAnalysis(action, symbols, timestamp);
-      case 'insights-agent':
-        return this.simulateInsights(action, symbols, timestamp);
-      default:
-        throw new Error(`Unknown agent: ${agentId}`);
-    }
-  }
-
-  private simulateMarketResearch(action: string, symbols: string[], timestamp: string) {
     return {
       success: true,
       agent: 'market-research-agent',
@@ -106,9 +140,7 @@ export class A2AHttpGateway {
         }
       }
     };
-  }
-
-  private simulateMacroResearch(action: string, symbols: string[], timestamp: string) {
+      case 'macro-research-agent':
     return {
       success: true,
       agent: 'macro-research-agent',
@@ -125,10 +157,8 @@ export class A2AHttpGateway {
         outlook: 'positive'
       }
     };
-  }
-
-  private simulatePriceAnalysis(action: string, symbols: string[], timestamp: string) {
-    const mockData = symbols.map(symbol => ({
+      case 'price-analysis-agent':
+                 const mockData = symbols.map((symbol: string) => ({
       symbol,
       name: this.getCompanyName(symbol),
       price: 150 + Math.random() * 200,
@@ -156,9 +186,7 @@ export class A2AHttpGateway {
         }
       }
     };
-  }
-
-  private simulateInsights(action: string, symbols: string[], timestamp: string) {
+      case 'insights-agent':
     return {
       success: true,
       agent: 'insights-agent',
@@ -197,6 +225,9 @@ export class A2AHttpGateway {
         }
       }
     };
+      default:
+        throw new Error(`Unknown agent: ${agentId}`);
+    }
   }
 
   private getCompanyName(symbol: string): string {

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useApp } from '@/app/providers';
 import { PDFReportGenerator } from './PDFReportGenerator';
+import { CostReport, CostSummary, RequestCost } from '@/components/CostReport';
 
 interface WorkflowStep {
   id: string;
@@ -20,6 +21,9 @@ export function AgentWorkflow() {
   const [currentSymbols, setCurrentSymbols] = useState<string[]>([]);
   const [stockInput, setStockInput] = useState('');
   const [inputError, setInputError] = useState('');
+  const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
+  const [showCostReport, setShowCostReport] = useState(false);
+  const [collectedCosts, setCollectedCosts] = useState<any[]>([]);
 
   const parseStockSymbols = (input: string): string[] => {
     // Remove extra spaces, convert to uppercase, and split by comma or space
@@ -58,6 +62,64 @@ export function AgentWorkflow() {
     return true;
   };
 
+  const aggregateCosts = (costs: any[]): CostSummary => {
+    const agentCostMap = new Map<string, any>();
+    
+    costs.forEach(cost => {
+      // Handle RequestCost structure (which has requestId instead of agentId)
+      const agentId = cost.requestId ? cost.requestId.split('-')[0] : 'unknown';
+      const agentName = getAgentName(agentId);
+      
+      if (!agentCostMap.has(agentId)) {
+        agentCostMap.set(agentId, {
+          agentId,
+          agentName,
+          requestCount: 0,
+          totalInputTokens: 0,
+          totalOutputTokens: 0,
+          totalTokens: 0,
+          totalCost: 0,
+          averageCostPerRequest: 0,
+          requests: []
+        });
+      }
+      
+      const agent = agentCostMap.get(agentId);
+      agent.requestCount++;
+      agent.totalInputTokens += cost.inputTokens || 0;
+      agent.totalOutputTokens += cost.outputTokens || 0;
+      agent.totalTokens += cost.totalTokens || 0;
+      agent.totalCost += cost.totalCost || 0;
+      agent.averageCostPerRequest = agent.totalCost / agent.requestCount;
+      agent.requests.push(cost);
+    });
+    
+    const agentCosts = Array.from(agentCostMap.values());
+    const totalCost = agentCosts.reduce((sum, agent) => sum + agent.totalCost, 0);
+    const totalRequests = agentCosts.reduce((sum, agent) => sum + agent.requestCount, 0);
+    const totalInputTokens = agentCosts.reduce((sum, agent) => sum + agent.totalInputTokens, 0);
+    const totalOutputTokens = agentCosts.reduce((sum, agent) => sum + agent.totalOutputTokens, 0);
+    const totalTokens = agentCosts.reduce((sum, agent) => sum + agent.totalTokens, 0);
+    
+    const inputCost = costs.reduce((sum, cost) => sum + (cost.inputCost || 0), 0);
+    const outputCost = costs.reduce((sum, cost) => sum + (cost.outputCost || 0), 0);
+    
+    return {
+      totalCost,
+      totalRequests,
+      totalInputTokens,
+      totalOutputTokens,
+      totalTokens,
+      agentCosts,
+      costBreakdown: {
+        inputCost,
+        outputCost
+      },
+      sessionStart: new Date(),
+      sessionEnd: new Date()
+    };
+  };
+
   const runFullWorkflow = async () => {
     if (!a2aClient || !isConnected) return;
 
@@ -69,6 +131,7 @@ export function AgentWorkflow() {
 
     setIsRunning(true);
     setCurrentSymbols(symbols);
+    setCollectedCosts([]); // Reset costs for new workflow
     
     const steps: WorkflowStep[] = [
       { id: '1', agent: 'market-research-agent', action: 'analyze_market_sentiment', status: 'pending' },
@@ -78,6 +141,7 @@ export function AgentWorkflow() {
     ];
 
     setWorkflow(steps);
+    const sessionStart = new Date();
 
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
@@ -93,6 +157,27 @@ export function AgentWorkflow() {
         
         const result = await a2aClient.sendMessage(step.agent, step.action, { symbols });
         const duration = Date.now() - startTime;
+
+        // Extract cost information if available
+        console.log('🔍 Frontend - Checking result for cost info:', {
+          hasData: !!result.data,
+          hasCostInfo: !!(result.data && result.data.costInfo),
+          resultKeys: result.data ? Object.keys(result.data) : [],
+          costInfo: result.data?.costInfo
+        });
+        
+        if (result.data && result.data.costInfo) {
+          const costInfo = result.data.costInfo;
+          console.log('🔍 Frontend - Adding cost info to collection:', costInfo);
+          setCollectedCosts(prev => {
+            const newCosts = [...prev, costInfo];
+            console.log('🔍 Frontend - Updated collected costs:', newCosts);
+            return newCosts;
+          });
+          console.log(`💰 Frontend - Cost tracked: ${costInfo.totalCost.toFixed(6)} (${costInfo.totalTokens} tokens)`);
+        } else {
+          console.log('⚠️ Frontend - No cost info found in result');
+        }
 
         // Update step to completed
         setWorkflow(prev => prev.map(s => 
@@ -124,6 +209,19 @@ export function AgentWorkflow() {
     }
 
     setIsRunning(false);
+    
+    // Generate cost summary after workflow completion
+    setCollectedCosts(currentCosts => {
+      console.log('🔍 Frontend - Generating cost summary with costs:', currentCosts);
+      const costData = aggregateCosts(currentCosts);
+      costData.sessionStart = sessionStart;
+      costData.sessionEnd = new Date();
+      console.log('🔍 Frontend - Generated cost summary:', costData);
+      setCostSummary(costData);
+      setShowCostReport(true);
+      console.log('🔍 Frontend - Set showCostReport to true');
+      return currentCosts;
+    });
   };
 
   const getAgentIcon = (agentId: string) => {
@@ -324,6 +422,16 @@ export function AgentWorkflow() {
               <PDFReportGenerator 
                 workflow={workflow} 
                 symbols={currentSymbols}
+              />
+            </div>
+          )}
+
+          {/* Cost Report - only show after successful completion */}
+          {workflow.length > 0 && workflow.every(step => step.status === 'completed') && (
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+              <CostReport 
+                costSummary={costSummary}
+                isVisible={showCostReport}
               />
             </div>
           )}

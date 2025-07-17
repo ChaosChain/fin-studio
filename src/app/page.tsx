@@ -3,17 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useApp } from './providers';
 import { AgentStatus } from '@/components/AgentStatus';
-import { MarketOverview } from '@/components/MarketOverview';
-import { InsightsFeed } from '@/components/InsightsFeed';
-import { QuickActions } from '@/components/QuickActions';
 import { WelcomeHero } from '@/components/WelcomeHero';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AgentWorkflow } from '@/components/AgentWorkflow';
 
 export default function HomePage() {
-  const { isConnected, agents, marketData, dailyInsights, loading, error } = useApp();
-  const [selectedSymbols, setSelectedSymbols] = useState<string[]>(['AAPL', 'GOOGL', 'MSFT', 'TSLA']);
+  const { isConnected, agents, loading, error } = useApp();
 
   return (
     <ErrorBoundary>
@@ -64,34 +60,6 @@ export default function HomePage() {
 
               {/* Agent Workflow Demo */}
               <AgentWorkflow />
-
-              {/* Quick Actions */}
-              <div className="glass-card rounded-xl p-6">
-                <h2 className="text-2xl font-semibold mb-4">Quick Actions</h2>
-                <QuickActions 
-                  selectedSymbols={selectedSymbols} 
-                  onSymbolsChange={setSelectedSymbols} 
-                />
-              </div>
-
-              {/* Market Overview */}
-              <div className="glass-card rounded-xl p-6">
-                <h2 className="text-2xl font-semibold mb-4">Market Overview</h2>
-                <MarketOverview 
-                  marketData={marketData} 
-                  loading={loading} 
-                  symbols={selectedSymbols}
-                />
-              </div>
-
-              {/* Insights Feed */}
-              <div className="glass-card rounded-xl p-6">
-                <h2 className="text-2xl font-semibold mb-4">Latest Insights</h2>
-                <InsightsFeed 
-                  insights={dailyInsights} 
-                  loading={loading} 
-                />
-              </div>
             </div>
           )}
 

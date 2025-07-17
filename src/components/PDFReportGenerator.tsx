@@ -29,14 +29,28 @@ export function PDFReportGenerator({ workflow, symbols }: PDFReportGeneratorProp
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 20;
+      const bottomMargin = 30; // Add bottom margin
       let yPosition = margin;
 
       // Helper function to add a new page if needed
       const checkPageBreak = (requiredSpace: number) => {
-        if (yPosition + requiredSpace > pageHeight - margin) {
+        if (yPosition + requiredSpace > pageHeight - margin - bottomMargin) {
           pdf.addPage();
           yPosition = margin;
         }
+      };
+
+      // Helper function to clean and format text
+      const cleanText = (text: string): string => {
+        if (!text) return '';
+        
+        return text
+          .replace(/\*\*/g, '') // Remove markdown bold markers
+          .replace(/\*/g, '') // Remove markdown italic markers
+          .replace(/--/g, '') // Remove separators
+          .replace(/\n+/g, ' ') // Replace multiple newlines with single space
+          .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+          .trim();
       };
 
       // Helper function to add text with word wrapping
@@ -45,6 +59,126 @@ export function PDFReportGenerator({ workflow, symbols }: PDFReportGeneratorProp
         const lines = pdf.splitTextToSize(text, maxWidth);
         pdf.text(lines, x, y);
         return lines.length * (fontSize * 0.35); // Approximate line height
+      };
+
+      // Helper function to add section header
+      const addSectionHeader = (text: string, y: number) => {
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(text, margin, y);
+        return 8; // Return height used
+      };
+
+      // Helper function to add subsection
+      const addSubsection = (text: string, y: number, indent: number = 5) => {
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(text, margin + indent, y);
+        return 6;
+      };
+
+      // Helper function to add content
+      const addContent = (text: string, y: number, indent: number = 10) => {
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        const cleanedText = cleanText(text);
+        return addText(cleanedText, margin + indent, y, pageWidth - 2 * margin - indent);
+      };
+
+      // Helper function to add bullet points
+      const addBulletPoints = (points: string[], y: number, indent: number = 15) => {
+        let currentY = y;
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        
+        points.forEach(point => {
+          const cleanedPoint = cleanText(point);
+          if (cleanedPoint) {
+            const lines = pdf.splitTextToSize(`• ${cleanedPoint}`, pageWidth - 2 * margin - indent);
+            pdf.text(lines, margin + indent, currentY);
+            currentY += lines.length * 3.5;
+          }
+        });
+        
+        return currentY - y;
+      };
+
+      // Helper function to check if content is empty or meaningless
+      const isEmptyContent = (content: any): boolean => {
+        if (content === null || content === undefined || content === '') {
+          return true;
+        }
+        if (typeof content === 'string') {
+          const trimmed = content.trim();
+          return trimmed === '' || trimmed === 'N/A' || trimmed === 'None' || trimmed === 'null';
+        }
+        if (Array.isArray(content)) {
+          return content.length === 0 || content.every(item => isEmptyContent(item));
+        }
+        if (typeof content === 'object') {
+          return Object.keys(content).length === 0 || 
+                 Object.values(content).every(value => isEmptyContent(value));
+        }
+        return false;
+      };
+
+      // Helper function to add structured content with proper formatting
+      const addStructuredContent = (content: any, y: number, indent: number = 10) => {
+        let currentY = y;
+        
+        if (typeof content === 'string') {
+          if (!isEmptyContent(content)) {
+            currentY += addContent(content, currentY, indent);
+          }
+        } else if (Array.isArray(content)) {
+          const nonEmptyItems = content.filter(item => !isEmptyContent(item));
+          if (nonEmptyItems.length > 0) {
+            currentY += addBulletPoints(nonEmptyItems, currentY, indent);
+          }
+        } else if (typeof content === 'object' && content !== null) {
+          Object.entries(content).forEach(([key, value]) => {
+            if (!isEmptyContent(value)) {
+              const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+              currentY += addSubsection(label, currentY, indent);
+              currentY += 3;
+              
+              if (typeof value === 'string') {
+                currentY += addContent(value, currentY, indent + 5);
+              } else if (Array.isArray(value)) {
+                const nonEmptyItems = value.filter(item => !isEmptyContent(item));
+                if (nonEmptyItems.length > 0) {
+                  currentY += addBulletPoints(nonEmptyItems, currentY, indent + 5);
+                }
+              } else if (typeof value === 'object' && value !== null) {
+                currentY += addStructuredContent(value, currentY, indent + 5);
+              }
+              currentY += 3;
+            }
+          });
+        }
+        
+        return currentY - y;
+      };
+
+      // Helper function to add clean section content
+      const addCleanSection = (sectionName: string, content: any, y: number) => {
+        let currentY = y;
+        
+        // Add section header
+        currentY += addSectionHeader(sectionName, currentY);
+        currentY += 5;
+        
+        // Add cleaned content
+        if (typeof content === 'string') {
+          currentY += addContent(content, currentY);
+        } else if (Array.isArray(content)) {
+          currentY += addBulletPoints(content, currentY);
+        } else if (typeof content === 'object') {
+          currentY += addStructuredContent(content, currentY);
+        }
+        currentY += 8;
+        
+        return currentY - y;
       };
 
       // Header
@@ -97,7 +231,7 @@ export function PDFReportGenerator({ workflow, symbols }: PDFReportGeneratorProp
       });
       yPosition += 10;
 
-      // Detailed Agent Analysis
+      // Detailed Agent Analysis with clean content
       workflow.forEach((step, index) => {
         if (step.status === 'completed' && step.result) {
           checkPageBreak(50);
@@ -109,121 +243,181 @@ export function PDFReportGenerator({ workflow, symbols }: PDFReportGeneratorProp
           pdf.text(`${index + 1}. ${agentName.charAt(0).toUpperCase() + agentName.slice(1)} Analysis`, margin, yPosition);
           yPosition += 10;
 
-          // Agent-specific content
+          // Agent-specific content with clean formatting
           pdf.setFontSize(10);
           pdf.setFont('helvetica', 'normal');
 
           switch (step.agent) {
             case 'market-research-agent':
-              if (step.result.analysis) {
-                yPosition += addText(`Market Sentiment: ${step.result.analysis.sentiment}`, margin, yPosition, pageWidth - 2 * margin);
-                yPosition += 5;
-                yPosition += addText(`Confidence Level: ${Math.round((step.result.analysis.confidence || 0) * 100)}%`, margin, yPosition, pageWidth - 2 * margin);
-                yPosition += 5;
-                if (step.result.analysis.trends) {
-                  yPosition += addText(`Key Trends:`, margin, yPosition, pageWidth - 2 * margin);
-                  yPosition += 3;
-                  step.result.analysis.trends.forEach((trend: string) => {
-                    yPosition += addText(`• ${trend}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
-                    yPosition += 3;
-                  });
+              if (step.result) {
+                // Market Sentiment
+                if (!isEmptyContent(step.result.sentiment) || !isEmptyContent(step.result.analysis?.sentiment)) {
+                  const sentimentData = step.result.analysis?.sentiment || step.result.sentiment;
+                  yPosition += addCleanSection('Market Sentiment', sentimentData, yPosition);
                 }
-                yPosition += 5;
-                if (step.result.analysis.news_summary) {
-                  yPosition += addText(`News Summary: ${step.result.analysis.news_summary}`, margin, yPosition, pageWidth - 2 * margin);
+
+                // Confidence Level
+                if (!isEmptyContent(step.result.confidence) || !isEmptyContent(step.result.analysis?.confidence)) {
+                  const confidenceData = step.result.analysis?.confidence || step.result.confidence;
+                  yPosition += addCleanSection('Confidence Level', `${Math.round(confidenceData * 100)}%`, yPosition);
+                }
+
+                // Key Trends
+                if (step.result.analysis?.trends && Array.isArray(step.result.analysis.trends) && !isEmptyContent(step.result.analysis.trends)) {
+                  yPosition += addCleanSection('Key Trends', step.result.analysis.trends, yPosition);
+                }
+
+                // News Summary
+                if (!isEmptyContent(step.result.analysis?.news_summary)) {
+                  yPosition += addCleanSection('News Summary', step.result.analysis.news_summary, yPosition);
+                }
+
+                // Technical Analysis
+                if (!isEmptyContent(step.result.analysis?.technicalAnalysis)) {
+                  yPosition += addCleanSection('Technical Analysis', step.result.analysis.technicalAnalysis, yPosition);
+                }
+
+                // Risk Assessment
+                if (!isEmptyContent(step.result.analysis?.riskAssessment)) {
+                  yPosition += addCleanSection('Risk Assessment', step.result.analysis.riskAssessment, yPosition);
+                }
+
+                // Recommendations
+                if (!isEmptyContent(step.result.recommendations) || !isEmptyContent(step.result.analysis?.recommendations)) {
+                  const recommendationsData = step.result.analysis?.recommendations || step.result.recommendations;
+                  yPosition += addCleanSection('Investment Recommendations', recommendationsData, yPosition);
                 }
               }
               break;
 
             case 'macro-research-agent':
-              if (step.result.indicators) {
-                yPosition += addText('Economic Indicators:', margin, yPosition, pageWidth - 2 * margin);
-                yPosition += 5;
-                Object.entries(step.result.indicators).forEach(([key, value]) => {
-                  const label = key.replace('_', ' ').toUpperCase();
-                  yPosition += addText(`• ${label}: ${value}${key.includes('rate') || key.includes('growth') || key.includes('inflation') || key.includes('unemployment') ? '%' : ''}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
-                  yPosition += 3;
-                });
-                yPosition += 5;
-                if (step.result.analysis) {
-                  yPosition += addText(`Analysis: ${step.result.analysis}`, margin, yPosition, pageWidth - 2 * margin);
-                  yPosition += 5;
+              if (step.result) {
+                // Economic Indicators
+                if (!isEmptyContent(step.result.indicators)) {
+                  yPosition += addCleanSection('Economic Indicators', step.result.indicators, yPosition);
                 }
-                if (step.result.outlook) {
-                  yPosition += addText(`Outlook: ${step.result.outlook.toUpperCase()}`, margin, yPosition, pageWidth - 2 * margin);
+
+                // Macroeconomic Analysis
+                if (!isEmptyContent(step.result.analysis)) {
+                  yPosition += addCleanSection('Macroeconomic Analysis', step.result.analysis, yPosition);
+                }
+
+                // Regions Analyzed
+                if (step.result.regions && !isEmptyContent(step.result.regions)) {
+                  yPosition += addCleanSection('Regions Analyzed', step.result.regions, yPosition);
+                }
+
+                // Key Insights
+                if (!isEmptyContent(step.result.keyInsights)) {
+                  yPosition += addCleanSection('Key Insights', step.result.keyInsights, yPosition);
+                }
+
+                // Risk Factors
+                if (!isEmptyContent(step.result.riskFactors)) {
+                  yPosition += addCleanSection('Risk Factors', step.result.riskFactors, yPosition);
                 }
               }
               break;
 
             case 'price-analysis-agent':
-              if (step.result.marketData) {
-                yPosition += addText('Market Data:', margin, yPosition, pageWidth - 2 * margin);
-                yPosition += 5;
-                step.result.marketData.forEach((stock: any) => {
-                  checkPageBreak(20);
-                  yPosition += addText(`${stock.symbol} (${stock.name}):`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
-                  yPosition += 3;
-                  yPosition += addText(`  Price: $${stock.price.toFixed(2)}`, margin + 10, yPosition, pageWidth - 2 * margin - 10);
-                  yPosition += 3;
-                  const changeSymbol = stock.change >= 0 ? '+' : '';
-                  yPosition += addText(`  Change: ${changeSymbol}${stock.change.toFixed(2)} (${stock.changePercent.toFixed(2)}%)`, margin + 10, yPosition, pageWidth - 2 * margin - 10);
-                  yPosition += 3;
-                  yPosition += addText(`  Volume: ${stock.volume.toLocaleString()}`, margin + 10, yPosition, pageWidth - 2 * margin - 10);
-                  yPosition += 5;
-                });
-                
-                if (step.result.technicalAnalysis) {
-                  yPosition += addText('Technical Analysis:', margin, yPosition, pageWidth - 2 * margin);
-                  yPosition += 5;
-                  const ta = step.result.technicalAnalysis;
-                  yPosition += addText(`• Trend: ${ta.trend}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
-                  yPosition += 3;
-                  yPosition += addText(`• Support Level: $${ta.support}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
-                  yPosition += 3;
-                  yPosition += addText(`• Resistance Level: $${ta.resistance}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
-                  yPosition += 3;
-                  yPosition += addText(`• RSI: ${ta.rsi}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
-                  yPosition += 3;
-                  yPosition += addText(`• Recommendation: ${ta.recommendation.toUpperCase()}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
+              if (step.result) {
+                // Executive Summary
+                if (!isEmptyContent(step.result.executiveSummary)) {
+                  yPosition += addCleanSection('Price Analysis Summary', step.result.executiveSummary, yPosition);
+                }
+
+                // Real-time Price Analysis
+                if (!isEmptyContent(step.result.analysis?.realTimePriceAnalysis)) {
+                  yPosition += addCleanSection('Real-time Price Analysis', step.result.analysis.realTimePriceAnalysis, yPosition);
+                }
+
+                // Technical Indicators
+                if (!isEmptyContent(step.result.analysis?.technicalIndicators)) {
+                  yPosition += addCleanSection('Technical Indicators', step.result.analysis.technicalIndicators, yPosition);
+                }
+
+                // Chart Pattern Analysis
+                if (!isEmptyContent(step.result.analysis?.chartPatternAnalysis)) {
+                  yPosition += addCleanSection('Chart Pattern Analysis', step.result.analysis.chartPatternAnalysis, yPosition);
+                }
+
+                // Volume and Flow Analysis
+                if (!isEmptyContent(step.result.analysis?.volumeFlowAnalysis)) {
+                  yPosition += addCleanSection('Volume and Flow Analysis', step.result.analysis.volumeFlowAnalysis, yPosition);
+                }
+
+                // Volatility Analysis
+                if (!isEmptyContent(step.result.analysis?.volatilityAnalysis)) {
+                  yPosition += addCleanSection('Volatility Analysis', step.result.analysis.volatilityAnalysis, yPosition);
+                }
+
+                // Market Microstructure
+                if (!isEmptyContent(step.result.analysis?.marketMicrostructure)) {
+                  yPosition += addCleanSection('Market Microstructure', step.result.analysis.marketMicrostructure, yPosition);
+                }
+
+                // Risk Metrics
+                if (!isEmptyContent(step.result.analysis?.riskMetrics)) {
+                  yPosition += addCleanSection('Risk Metrics', step.result.analysis.riskMetrics, yPosition);
+                }
+
+                // Trading Implications
+                if (!isEmptyContent(step.result.analysis?.tradingImplications)) {
+                  yPosition += addCleanSection('Trading Implications', step.result.analysis.tradingImplications, yPosition);
+                }
+
+                // Price Targets
+                if (!isEmptyContent(step.result.analysis?.priceTargets)) {
+                  yPosition += addCleanSection('Price Targets', step.result.analysis.priceTargets, yPosition);
+                }
+
+                // Confidence Level
+                if (!isEmptyContent(step.result.analysis?.confidenceLevel)) {
+                  yPosition += addCleanSection('Confidence Level', step.result.analysis.confidenceLevel.toString(), yPosition);
                 }
               }
               break;
 
             case 'insights-agent':
-              if (step.result.insight) {
-                const insight = step.result.insight;
-                yPosition += addText(`Title: ${insight.title}`, margin, yPosition, pageWidth - 2 * margin);
-                yPosition += 5;
-                yPosition += addText(`Summary: ${insight.summary}`, margin, yPosition, pageWidth - 2 * margin);
-                yPosition += 8;
-                
-                if (insight.sections) {
-                  insight.sections.forEach((section: any) => {
-                    checkPageBreak(15);
-                    yPosition += addText(`${section.title}:`, margin, yPosition, pageWidth - 2 * margin, 11);
-                    yPosition += 5;
-                    yPosition += addText(section.content, margin + 5, yPosition, pageWidth - 2 * margin - 5);
-                    yPosition += 8;
-                  });
+              if (step.result) {
+                // Market Insights
+                if (!isEmptyContent(step.result.insights)) {
+                  yPosition += addCleanSection('Market Insights', step.result.insights, yPosition);
                 }
-                
-                if (insight.keyPoints) {
-                  yPosition += addText('Key Points:', margin, yPosition, pageWidth - 2 * margin, 11);
-                  yPosition += 5;
-                  insight.keyPoints.forEach((point: string) => {
-                    yPosition += addText(`• ${point}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
-                    yPosition += 3;
-                  });
-                  yPosition += 5;
+
+                // Daily Market Analysis
+                if (step.result.keyPoints && Array.isArray(step.result.keyPoints) && !isEmptyContent(step.result.keyPoints)) {
+                  yPosition += addCleanSection('Daily Market Analysis', step.result.keyPoints, yPosition);
                 }
-                
-                if (insight.actionItems) {
-                  yPosition += addText('Action Items:', margin, yPosition, pageWidth - 2 * margin, 11);
-                  yPosition += 5;
-                  insight.actionItems.forEach((item: string) => {
-                    yPosition += addText(`• ${item}`, margin + 5, yPosition, pageWidth - 2 * margin - 5);
-                    yPosition += 3;
-                  });
+
+                // Market Outlook
+                if (!isEmptyContent(step.result.marketOutlook)) {
+                  yPosition += addCleanSection('Market Outlook', step.result.marketOutlook, yPosition);
+                }
+
+                // Investment Strategy
+                if (!isEmptyContent(step.result.investmentStrategy)) {
+                  yPosition += addCleanSection('Investment Strategy', step.result.investmentStrategy, yPosition);
+                }
+
+                // Portfolio Allocation
+                if (!isEmptyContent(step.result.portfolioAllocation)) {
+                  yPosition += addCleanSection('Portfolio Allocation', step.result.portfolioAllocation, yPosition);
+                }
+
+                // Recommendations
+                if (step.result.recommendations && Array.isArray(step.result.recommendations) && !isEmptyContent(step.result.recommendations)) {
+                  yPosition += addCleanSection('Investment Recommendations', step.result.recommendations, yPosition);
+                }
+
+                // Risk Factors
+                if (step.result.riskFactors && Array.isArray(step.result.riskFactors) && !isEmptyContent(step.result.riskFactors)) {
+                  yPosition += addCleanSection('Risk Factors', step.result.riskFactors, yPosition);
+                }
+
+                // Market Timing
+                if (!isEmptyContent(step.result.marketTiming)) {
+                  yPosition += addCleanSection('Market Timing', step.result.marketTiming, yPosition);
                 }
               }
               break;
@@ -267,10 +461,10 @@ export function PDFReportGenerator({ workflow, symbols }: PDFReportGeneratorProp
           <span className="text-2xl">📄</span>
           <div>
             <h3 className="font-semibold text-blue-800 dark:text-blue-400">
-              Export Comprehensive Report
+              Export Clean Report
             </h3>
             <p className="text-sm text-blue-600 dark:text-blue-300">
-              Generate a professional PDF report with all agent analysis
+              Generate a professional PDF report with clean formatting
             </p>
           </div>
         </div>
@@ -283,12 +477,12 @@ export function PDFReportGenerator({ workflow, symbols }: PDFReportGeneratorProp
           {isGenerating ? (
             <>
               <div className="loading-spinner h-4 w-4"></div>
-              <span>Generating PDF...</span>
+              <span>Generating Report...</span>
             </>
           ) : (
             <>
               <span>📊</span>
-              <span>Export PDF Report</span>
+              <span>Export Clean Report</span>
             </>
           )}
         </button>
@@ -296,8 +490,8 @@ export function PDFReportGenerator({ workflow, symbols }: PDFReportGeneratorProp
       
       <div className="mt-3 text-xs text-blue-600 dark:text-blue-400">
         <p>
-          <strong>Report includes:</strong> Executive summary, agent workflow details, market research findings, 
-          macroeconomic analysis, technical price analysis, and comprehensive insights with actionable recommendations.
+          <strong>Clean report includes:</strong> Direct agent content with proper formatting, 
+          clean syntax, and well-aligned layout for professional presentation.
         </p>
       </div>
     </div>
