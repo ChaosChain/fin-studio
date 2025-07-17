@@ -3,9 +3,6 @@
 <div align="center">
 
 ![Fin Studio](https://img.shields.io/badge/Fin%20Studio-AI%20Powered%20Investment%20Analysis-blue?style=for-the-badge&logo=typescript)
-![Next.js](https://img.shields.io/badge/Next.js-14.0.4-black?style=for-the-badge&logo=next.js)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.3.3-blue?style=for-the-badge&logo=typescript)
-![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4-green?style=for-the-badge&logo=openai)
 
 **A modern fintech platform powered by AI agents using Google Cloud's A2A (Agent-to-Agent) protocol for seamless communication and collaboration, with integrated blockchain payment systems.**
 
@@ -412,10 +409,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Next.js for optimal performance
 - Tailwind CSS for beautiful UI
 
----
-
-<div align="center">
-
-[Report Bug](https://github.com/your-repo/issues) • [Request Feature](https://github.com/your-repo/issues) • [View Demo](http://localhost:3000)
-
-</div>
