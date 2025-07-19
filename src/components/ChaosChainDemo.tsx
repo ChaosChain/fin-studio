@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ConsensusVisualizer } from './ConsensusVisualizer';
 import DKGVisualizer from './DKGVisualizer';
 import VerifierNetworkVisualizer from './VerifierNetworkVisualizer';
+import FinalReport from './FinalReport';
 
 interface AnalysisResult {
   taskId: string;
@@ -45,6 +46,7 @@ export default function ChaosChainDemo() {
   const [systemStatus, setSystemStatus] = useState<any>(null);
   const [selectedSymbol, setSelectedSymbol] = useState('AAPL');
   const [dkgRefreshTrigger, setDkgRefreshTrigger] = useState(0);
+  const [showFinalReport, setShowFinalReport] = useState(false);
 
   const runComprehensiveAnalysis = async () => {
     setIsAnalyzing(true);
@@ -68,6 +70,11 @@ export default function ChaosChainDemo() {
         setConsensusData(data.consensusData || []);
         // Trigger DKG visualizer refresh
         setDkgRefreshTrigger(prev => prev + 1);
+        
+        // Show final report after a brief delay to let visualizations update
+        setTimeout(() => {
+          setShowFinalReport(true);
+        }, 2000);
       } else {
         console.error('Analysis failed:', data.error);
       }
@@ -192,6 +199,15 @@ export default function ChaosChainDemo() {
             >
               {isAnalyzing ? '🔄 Analyzing...' : '🚀 Start Analysis'}
             </Button>
+            {analysisResult && systemMetrics && (
+              <Button 
+                variant="outline"
+                onClick={() => setShowFinalReport(true)}
+                className="min-w-[160px]"
+              >
+                📊 View Final Report
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -399,6 +415,17 @@ export default function ChaosChainDemo() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Final Report Modal */}
+      {showFinalReport && analysisResult && systemMetrics && (
+        <FinalReport
+          analysisResult={analysisResult}
+          consensusData={consensusData}
+          systemMetrics={systemMetrics}
+          symbol={selectedSymbol}
+          onClose={() => setShowFinalReport(false)}
+        />
+      )}
     </div>
   );
 } 

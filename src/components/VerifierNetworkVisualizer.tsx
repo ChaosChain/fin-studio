@@ -46,7 +46,6 @@ interface VerifierNetworkVisualizerProps {
 export default function VerifierNetworkVisualizer({ consensusData = [], refreshTrigger = 0 }: VerifierNetworkVisualizerProps) {
   const [verifiers, setVerifiers] = useState<VerifierData[]>([]);
   const [selectedVerifier, setSelectedVerifier] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'network' | 'timeline' | 'details'>('network');
   const [loading, setLoading] = useState(false);
 
   // Generate mock verifier data based on consensus data
@@ -487,7 +486,7 @@ export default function VerifierNetworkVisualizer({ consensusData = [], refreshT
                 </svg>
               </div>
               <div>
-                <CardTitle className="text-xl font-bold text-gray-900">Verifier Network</CardTitle>
+                <h3 className="tracking-tight text-xl font-bold text-gray-900">Verifier Network</h3>
                 <div className="flex items-center space-x-3 mt-1">
                   <Badge className="bg-green-100 text-green-800 border-green-200">
                     {verifiers.length} verifiers
@@ -498,42 +497,11 @@ export default function VerifierNetworkVisualizer({ consensusData = [], refreshT
                 </div>
               </div>
             </div>
-            
-            <div className="flex items-center space-x-2">
-              <div className="flex bg-white rounded-lg border shadow-sm">
-                <Button
-                  variant={viewMode === 'network' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('network')}
-                  className={`rounded-r-none ${viewMode === 'network' ? 'bg-green-600 text-white' : 'text-gray-600'}`}
-                >
-                  Network
-                </Button>
-                <Button
-                  variant={viewMode === 'timeline' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('timeline')}
-                  className={`rounded-none border-x ${viewMode === 'timeline' ? 'bg-green-600 text-white' : 'text-gray-600'}`}
-                >
-                  Timeline
-                </Button>
-                <Button
-                  variant={viewMode === 'details' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('details')}
-                  className={`rounded-l-none ${viewMode === 'details' ? 'bg-green-600 text-white' : 'text-gray-600'}`}
-                >
-                  Details
-                </Button>
-              </div>
-            </div>
           </div>
         </CardHeader>
         
         <CardContent>
-          {viewMode === 'network' && renderNetworkView()}
-          {viewMode === 'timeline' && renderTimelineView()}
-          {viewMode === 'details' && renderDetailsView()}
+          {renderDetailsView()}
           
           {/* Legend */}
           <div className="mt-6 bg-gray-50 rounded-lg p-4 border">

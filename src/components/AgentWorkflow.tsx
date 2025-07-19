@@ -12,6 +12,7 @@ interface WorkflowStep {
   agent: string;
   action: string;
   status: 'pending' | 'running' | 'completed' | 'error';
+  componentType?: string;
   result?: any;
   duration?: number;
 }
@@ -141,12 +142,30 @@ export function AgentWorkflow() {
     setCurrentSymbols(symbols);
     setCollectedCosts([]); // Reset costs for new workflow
 
-    const steps: WorkflowStep[] = [
-      { id: '1', agent: 'market-research-agent', action: 'analyze_market_sentiment', status: 'pending' },
-      { id: '2', agent: 'macro-research-agent', action: 'analyze_economic_indicators', status: 'pending' },
-      { id: '3', agent: 'price-analysis-agent', action: 'get_market_data', status: 'pending' },
-      { id: '4', agent: 'insights-agent', action: 'generate_daily_insight', status: 'pending' }
+    // Define two causality flows for demo
+    const causalityFlows: WorkflowStep[][] = [
+      // Flow 1: sentiment -> macro -> technical -> insights
+      [
+        { id: '1', agent: 'market-research-agent', action: 'analyze_market_sentiment', status: 'pending' as const, componentType: 'sentiment' },
+        { id: '2', agent: 'macro-research-agent', action: 'analyze_economic_indicators', status: 'pending' as const, componentType: 'macro' },
+        { id: '3', agent: 'price-analysis-agent', action: 'get_market_data', status: 'pending' as const, componentType: 'technical' },
+        { id: '4', agent: 'insights-agent', action: 'generate_daily_insight', status: 'pending' as const, componentType: 'insights' }
+      ],
+      // Flow 2: technical -> sentiment -> macro -> insights
+      [
+        { id: '1', agent: 'price-analysis-agent', action: 'get_market_data', status: 'pending' as const, componentType: 'technical' },
+        { id: '2', agent: 'market-research-agent', action: 'analyze_market_sentiment', status: 'pending' as const, componentType: 'sentiment' },
+        { id: '3', agent: 'macro-research-agent', action: 'analyze_economic_indicators', status: 'pending' as const, componentType: 'macro' },
+        { id: '4', agent: 'insights-agent', action: 'generate_daily_insight', status: 'pending' as const, componentType: 'insights' }
+      ]
     ];
+    
+    // Alternate between flows or choose randomly
+    const selectedFlow = Math.random() > 0.5 ? 0 : 1;
+    const steps: WorkflowStep[] = causalityFlows[selectedFlow];
+    
+    console.log(`🔄 Using Causality Flow ${selectedFlow + 1}: ${steps.map(s => s.componentType).join(' → ')}`);
+    
 
     setWorkflow(steps);
     const sessionStart = new Date();

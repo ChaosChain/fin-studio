@@ -53,6 +53,8 @@ export default function DKGVisualizer({ taskId, refreshTrigger = 0 }: DKGVisuali
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [showSignatures, setShowSignatures] = useState(true);
   const [showCostInfo, setShowCostInfo] = useState(true);
+  const [causalityMode, setCausalityMode] = useState<'real' | 'demo'>('demo');
+  const [demoFlow, setDemoFlow] = useState<1 | 2>(1);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Fetch DKG data
@@ -77,7 +79,7 @@ export default function DKGVisualizer({ taskId, refreshTrigger = 0 }: DKGVisuali
     fetchDKGData();
   }, [taskId, refreshTrigger]);
 
-  // Advanced layout calculation with force-directed positioning
+  // Clean, organized layout calculation
   const calculateAdvancedLayout = (nodeList: DKGNode[]) => {
     const positions: NodePosition[] = [];
     const connections: Connection[] = [];
@@ -89,100 +91,84 @@ export default function DKGVisualizer({ taskId, refreshTrigger = 0 }: DKGVisuali
       return componentMatch && agentMatch;
     });
 
-    // Create initial positions using force-directed layout
-    const centerX = 400;
-    const centerY = 300;
-    const componentTypes = [...new Set(filteredNodes.map(n => n.componentType))];
-    const agentTypes = [...new Set(filteredNodes.map(n => n.agentId.split('-')[0] + '-' + n.agentId.split('-')[1]))];
+    if (filteredNodes.length === 0) {
+      setNodePositions([]);
+      setConnections([]);
+      return;
+    }
+
+    // Group nodes by component type for clean organization
+    const nodesByComponent: { [key: string]: DKGNode[] } = {
+      sentiment: [],
+      macro: [],
+      technical: [],
+      insights: []
+    };
     
-    filteredNodes.forEach((node, index) => {
-      const componentIndex = componentTypes.indexOf(node.componentType);
-      const agentBaseType = node.agentId.split('-')[0] + '-' + node.agentId.split('-')[1];
-      const agentIndex = agentTypes.indexOf(agentBaseType);
-      const isGpt4o = node.agentId.includes('gpt4o');
+    filteredNodes.forEach(node => {
+      const type = node.componentType || 'unknown';
+      if (!nodesByComponent[type]) nodesByComponent[type] = [];
+      nodesByComponent[type].push(node);
+    });
+
+    // Clean horizontal flow layout
+    const componentOrder = ['sentiment', 'technical', 'macro', 'insights'];
+    const canvasWidth = 900;
+    const canvasHeight = 600;
+    const stageWidth = canvasWidth * 0.8;
+    const stageHeight = canvasHeight * 0.6;
+    const startX = (canvasWidth - stageWidth) / 2 + 80;
+    const startY = (canvasHeight - stageHeight) / 2 + 100;
+
+    componentOrder.forEach((componentType, stageIndex) => {
+      const stageNodes = nodesByComponent[componentType] || [];
+      if (stageNodes.length === 0) return;
+
+      // Calculate stage position with equal spacing
+      const stageX = startX + (stageIndex * stageWidth / Math.max(1, componentOrder.length - 1));
       
-      // Circular layout with component-based clustering
-      const angle = (componentIndex / componentTypes.length) * 2 * Math.PI;
-      const radius = 150 + (agentIndex * 80);
-      const offsetRadius = isGpt4o ? 40 : 0;
-      
-      const x = centerX + Math.cos(angle) * (radius + offsetRadius);
-      const y = centerY + Math.sin(angle) * (radius + offsetRadius);
-      
-      positions.push({ 
-        x: Math.max(50, Math.min(750, x)), 
-        y: Math.max(50, Math.min(550, y)), 
-        id: node.id, 
-        node 
+      // Position nodes vertically in each stage
+      stageNodes.forEach((node, nodeIndex) => {
+        const totalNodes = stageNodes.length;
+        const verticalSpacing = totalNodes > 1 ? 120 : 0;
+        const totalHeight = (totalNodes - 1) * verticalSpacing;
+        const nodeY = startY + (stageHeight / 2) - (totalHeight / 2) + (nodeIndex * verticalSpacing);
+        
+        positions.push({
+          x: stageX,
+          y: nodeY,
+          id: node.id,
+          node
+        });
       });
     });
 
-    // Calculate connections
-    positions.forEach((pos, index) => {
-      const node = pos.node;
+    // Create clear causal flow connections
+    componentOrder.forEach((componentType, stageIndex) => {
+      if (stageIndex === componentOrder.length - 1) return; // Last stage has no outgoing connections
       
-      // Parent-child relationships (causal chains) - if they exist
-      if (node.parentNodes && node.parentNodes.length > 0) {
-        node.parentNodes.forEach(parentId => {
-          const parentPos = positions.find(p => p.id === parentId);
-          if (parentPos) {
+      const currentStageNodes = nodesByComponent[componentType] || [];
+      const nextStageType = componentOrder[stageIndex + 1];
+      const nextStageNodes = nodesByComponent[nextStageType] || [];
+      
+      // Create clean connections between stages
+      currentStageNodes.forEach(sourceNode => {
+        nextStageNodes.forEach(targetNode => {
+          const sourcePos = positions.find(p => p.id === sourceNode.id);
+          const targetPos = positions.find(p => p.id === targetNode.id);
+          
+          if (sourcePos && targetPos) {
             connections.push({
-              from: parentPos,
-              to: pos,
+              from: sourcePos,
+              to: targetPos,
               type: 'causal'
             });
           }
         });
-      }
-      
-      // Temporal connections (same component, different agents)
-      positions.forEach(otherPos => {
-        if (pos.id !== otherPos.id && 
-            pos.node.componentType === otherPos.node.componentType) {
-          // Only create one connection per pair to avoid duplicates
-          if (pos.id < otherPos.id) {
-            connections.push({
-              from: pos,
-              to: otherPos,
-              type: 'temporal'
-            });
-          }
-        }
       });
-      
-      // Agent relationships (same base agent type, different components)
-      const baseAgentType = pos.node.agentId.split('-').slice(0, -1).join('-');
-      positions.forEach(otherPos => {
-        const otherBaseAgentType = otherPos.node.agentId.split('-').slice(0, -1).join('-');
-        if (pos.id !== otherPos.id && 
-            baseAgentType === otherBaseAgentType &&
-            pos.node.componentType !== otherPos.node.componentType) {
-          // Only create one connection per pair to avoid duplicates
-          if (pos.id < otherPos.id) {
-            connections.push({
-              from: pos,
-              to: otherPos,
-              type: 'agent'
-            });
-          }
-        }
-      });
-      
-      // Cross-component connections (insights connects to all other components)
-      if (pos.node.componentType === 'insights') {
-        positions.forEach(otherPos => {
-          if (pos.id !== otherPos.id && otherPos.node.componentType !== 'insights') {
-            connections.push({
-              from: otherPos,
-              to: pos,
-              type: 'causal'
-            });
-          }
-        });
-      }
     });
-    
-    console.log(`DKG Visualizer: Calculated ${positions.length} positions and ${connections.length} connections`);
+
+    console.log(`DKG Visualizer: Clean layout with ${positions.length} nodes and ${connections.length} connections`);
     setNodePositions(positions);
     setConnections(connections);
   };
@@ -231,68 +217,88 @@ export default function DKGVisualizer({ taskId, refreshTrigger = 0 }: DKGVisuali
   };
 
   const renderNetworkView = () => (
-    <div className="relative w-full h-[700px] border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-      {/* Background grid pattern */}
-      <div className="absolute inset-0 opacity-20">
-        <svg className="w-full h-full">
+    <div className="relative w-full h-[700px] border border-gray-200 rounded-xl overflow-hidden bg-white shadow-lg">
+      {/* Clean, simple background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-white">
+        {/* Simple grid pattern */}
+        <svg className="w-full h-full opacity-5">
           <defs>
-            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" strokeWidth="1"/>
+            <pattern id="simple-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#94a3b8" strokeWidth="1"/>
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#grid)" />
+          <rect width="100%" height="100%" fill="url(#simple-grid)" />
         </svg>
       </div>
 
       <svg className="absolute inset-0 w-full h-full z-10">
-        {/* Render connections */}
-        {connections.map((conn, index) => (
-          <g key={index}>
+        <defs>
+          {/* Simple arrow marker */}
+          <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6"/>
+          </marker>
+        </defs>
+        
+        {/* Render clean connections */}
+        {connections.map((conn, index) => {
+          const isHovered = hoveredNode === conn.from.id || hoveredNode === conn.to.id;
+          
+          return (
             <line
+              key={index}
               x1={conn.from.x + getNodeSize(conn.from.node) / 2}
               y1={conn.from.y + getNodeSize(conn.from.node) / 2}
               x2={conn.to.x + getNodeSize(conn.to.node) / 2}
               y2={conn.to.y + getNodeSize(conn.to.node) / 2}
-              stroke={getConnectionColor(conn.type)}
-              strokeWidth={conn.type === 'causal' ? 3 : 2}
-              strokeDasharray={conn.type === 'temporal' ? '6,3' : conn.type === 'agent' ? '10,5' : 'none'}
-              opacity={0.7}
-              markerEnd="url(#arrowhead)"
-              className="transition-opacity hover:opacity-100"
+              stroke="#3b82f6"
+              strokeWidth={isHovered ? 3 : 2}
+              opacity={isHovered ? 1 : 0.6}
+              markerEnd="url(#arrow)"
+              className="transition-all duration-200"
+              style={{ strokeLinecap: 'round' }}
             />
-          </g>
-        ))}
-        
-        {/* Arrow marker definitions */}
-        <defs>
-          <marker
-            id="arrowhead"
-            markerWidth="8"
-            markerHeight="6"
-            refX="7"
-            refY="3"
-            orient="auto"
-          >
-            <polygon
-              points="0 0, 8 3, 0 6"
-              fill="#6b7280"
-            />
-          </marker>
-        </defs>
+          );
+        })}
       </svg>
-      
-      {/* Empty state overlay when no nodes */}
-      {nodePositions.length === 0 && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-30 bg-white bg-opacity-90">
-          <div className="text-center p-6">
-            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4 mx-auto">
-              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+
+      {/* Stage labels for clear flow visualization */}
+      {nodePositions.length > 0 && (
+        <div className="absolute top-4 left-0 right-0 flex justify-between px-16 z-30">
+          {['Sentiment', 'Technical', 'Macro', 'Insights'].map((stage, index) => (
+            <div key={stage} className="text-center">
+              <div className="bg-gray-100 px-3 py-1 rounded-full text-sm font-medium text-gray-700 shadow-sm">
+                {index + 1}. {stage}
+              </div>
             </div>
-            <div className="text-gray-600 font-medium mb-2">No Analysis Data</div>
-            <div className="text-gray-500 text-sm max-w-xs">
-              Run an analysis to see agent nodes and connections appear here
+          ))}
+        </div>
+      )}
+      
+      {/* Enhanced empty state overlay */}
+      {nodePositions.length === 0 && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-30 bg-gradient-to-br from-white/95 via-slate-50/90 to-blue-50/80 backdrop-blur-sm">
+          <div className="text-center p-8 max-w-md">
+            {/* Animated icon */}
+            <div className="relative w-20 h-20 mx-auto mb-6">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full opacity-20 animate-pulse"></div>
+              <div className="absolute inset-2 bg-white rounded-full shadow-lg flex items-center justify-center">
+                <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+            </div>
+            
+            {/* Enhanced text */}
+            <div className="space-y-3">
+              <h3 className="text-xl font-semibold text-gray-800 tracking-tight">Knowledge Graph Ready</h3>
+              <p className="text-gray-600 leading-relaxed">
+                Run a comprehensive analysis to see AI agents collaborate and build the decentralized knowledge graph in real-time
+              </p>
+              <div className="flex justify-center space-x-2 mt-4">
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
             </div>
           </div>
         </div>
@@ -308,12 +314,12 @@ export default function DKGVisualizer({ taskId, refreshTrigger = 0 }: DKGVisuali
         return (
           <div
             key={node.id}
-            className={`absolute cursor-pointer transition-all duration-300 z-20 ${
-              isSelected ? 'ring-3 ring-blue-500 ring-opacity-60' : ''
-            } ${isHovered ? 'scale-110' : ''}`}
+            className={`absolute cursor-pointer transition-all duration-200 z-20 ${
+              isSelected ? 'scale-110' : ''
+            } ${isHovered ? 'scale-105' : 'hover:scale-105'}`}
             style={{ 
-              left: pos.x, 
-              top: pos.y,
+              left: pos.x - size/2, 
+              top: pos.y - size/2,
               width: size,
               height: size
             }}
@@ -321,54 +327,114 @@ export default function DKGVisualizer({ taskId, refreshTrigger = 0 }: DKGVisuali
             onMouseEnter={() => setHoveredNode(node.id)}
             onMouseLeave={() => setHoveredNode(null)}
           >
-            {/* Node circle with gradient */}
+            {/* Clean node design */}
             <div 
-              className="w-full h-full rounded-full shadow-xl border-3 border-white flex items-center justify-center relative overflow-hidden"
+              className={`w-full h-full rounded-full shadow-lg border-3 border-white flex items-center justify-center relative ${
+                isSelected ? 'ring-4 ring-blue-400 ring-opacity-50' : ''
+              }`}
               style={{ 
-                background: `linear-gradient(135deg, ${getNodeColor(node)}, ${getNodeColor(node)}dd)`
+                backgroundColor: getNodeColor(node)
               }}
             >
-              {/* Inner glow effect */}
-              <div className="absolute inset-1 rounded-full bg-white bg-opacity-10"></div>
-              
               {/* Component icon */}
-              <span className="text-white text-sm font-bold relative z-10">
+              <span className="text-white text-xl font-bold">
                 {node.componentType.slice(0, 1).toUpperCase()}
               </span>
               
-              {/* Model indicator */}
-              <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full border border-white"
+              {/* Simple model indicator */}
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white shadow-sm flex items-center justify-center text-xs font-bold text-white"
                    style={{ backgroundColor: node.agentId.includes('gpt4o') ? '#f97316' : '#3b82f6' }}>
+                {node.agentId.includes('gpt4o') ? '4o' : '4'}
               </div>
             </div>
             
-            {/* Node label */}
+            {/* Clean node label */}
             <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 text-center">
-              <div className="text-xs font-semibold text-gray-800 bg-white px-2 py-1 rounded-md shadow-sm border">
-                {node.componentType}
-              </div>
-              <div className="text-xs text-gray-600 mt-1">
-                {node.agentId.includes('gpt4o') ? 'GPT-4o' : 'GPT-4.1'}
-              </div>
-              {showCostInfo && node.costInfo && (
-                <div className="text-xs text-gray-500 mt-1">
-                  ${node.costInfo.totalCost.toFixed(3)}
+              <div className="bg-white px-3 py-1 rounded-lg shadow-md border">
+                <div className="text-sm font-semibold text-gray-800">
+                  {node.componentType.charAt(0).toUpperCase() + node.componentType.slice(1)}
                 </div>
-              )}
+                <div className="text-xs text-gray-600">
+                  {node.agentId.includes('gpt4o') ? 'GPT-4o' : 'GPT-4.1'}
+                  {showCostInfo && node.costInfo && (
+                    <span className="text-green-600 ml-2">
+                      ${node.costInfo.totalCost.toFixed(3)}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
             
-            {/* Hover tooltip */}
+            {/* Enhanced hover tooltip */}
             {isHovered && (
-              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 bg-gray-900 text-white p-3 rounded-lg text-xs whitespace-nowrap z-40 shadow-xl border border-gray-700">
-                <div className="font-semibold text-blue-300">{node.componentType.charAt(0).toUpperCase() + node.componentType.slice(1)} Analysis</div>
-                <div className="text-gray-300 mt-1">{node.agentId}</div>
-                <div className="text-gray-400 mt-1">{formatTimestamp(node.timestamp)}</div>
-                {node.costInfo && (
-                  <div className="text-green-400 mt-1">
-                    {node.costInfo.totalTokens.toLocaleString()} tokens • ${node.costInfo.totalCost.toFixed(4)}
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-4 z-50 animate-in fade-in-0 zoom-in-95 duration-200">
+                <div className="bg-gray-900/95 backdrop-blur-sm text-white p-4 rounded-2xl shadow-2xl border border-gray-700/50 min-w-[280px]">
+                  {/* Header */}
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div 
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                      style={{ backgroundColor: getNodeColor(node) }}
+                    >
+                      {node.componentType.slice(0, 1).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="font-bold text-blue-300 text-sm">
+                        {node.componentType.charAt(0).toUpperCase() + node.componentType.slice(1)} Analysis
+                      </div>
+                      <div className="text-gray-400 text-xs">{node.agentId}</div>
+                    </div>
                   </div>
-                )}
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                  
+                  {/* Details grid */}
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <div className="text-gray-400 mb-1">Timestamp</div>
+                      <div className="text-white font-medium">{formatTimestamp(node.timestamp)}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-400 mb-1">Node ID</div>
+                      <div className="text-white font-mono">{node.id.slice(-8)}</div>
+                    </div>
+                    {node.costInfo && (
+                      <>
+                        <div>
+                          <div className="text-gray-400 mb-1">Tokens</div>
+                          <div className="text-green-400 font-semibold">
+                            {node.costInfo.totalTokens.toLocaleString()}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-gray-400 mb-1">Cost</div>
+                          <div className="text-green-400 font-semibold">
+                            ${node.costInfo.totalCost.toFixed(4)}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  
+                  {/* Data sources */}
+                  {node.dataSources.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-700">
+                      <div className="text-gray-400 text-xs mb-2">Data Sources</div>
+                      <div className="flex flex-wrap gap-1">
+                        {node.dataSources.slice(0, 3).map((source, idx) => (
+                          <span key={idx} className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs">
+                            {source}
+                          </span>
+                        ))}
+                        {node.dataSources.length > 3 && (
+                          <span className="text-gray-500 text-xs">+{node.dataSources.length - 3} more</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Tooltip arrow */}
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2">
+                    <div className="w-0 h-0 border-l-[8px] border-r-[8px] border-t-[8px] border-transparent border-t-gray-900/95"></div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -765,67 +831,96 @@ export default function DKGVisualizer({ taskId, refreshTrigger = 0 }: DKGVisuali
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-lg border-0 bg-gradient-to-r from-blue-50 to-indigo-50">
-        <CardHeader className="pb-4">
+      <Card className="shadow-2xl border-0 bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/50 backdrop-blur-sm overflow-hidden">
+        <CardHeader className="pb-6 bg-gradient-to-r from-blue-600/5 via-indigo-600/5 to-purple-600/5 border-b border-gray-200/50">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">DKG</span>
+            <div className="flex items-center space-x-4">
+              {/* Enhanced logo */}
+              <div className="relative">
+                <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <span className="text-white font-bold text-xl tracking-wider">DKG</span>
+                </div>
+                <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-3 border-white flex items-center justify-center">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                </div>
               </div>
-              <div>
-                <CardTitle className="text-xl font-bold text-gray-900">Decentralized Knowledge Graph</CardTitle>
-                <div className="flex items-center space-x-3 mt-1">
-                  <Badge className="bg-blue-100 text-blue-800 border-blue-200">{nodePositions.length} nodes</Badge>
-                  <Badge className="bg-green-100 text-green-800 border-green-200">{connections.length} connections</Badge>
+              
+              <div className="space-y-2">
+                <CardTitle className="text-2xl font-bold text-gray-900 tracking-tight">
+                  Decentralized Knowledge Graph
+                </CardTitle>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    <Badge className="bg-blue-100/80 text-blue-800 border-blue-200/50 font-semibold px-3 py-1">
+                      {nodePositions.length} nodes
+                    </Badge>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+                    <Badge className="bg-green-100/80 text-green-800 border-green-200/50 font-semibold px-3 py-1">
+                      {connections.length} connections
+                    </Badge>
+                  </div>
+                  {loading && (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce"></div>
+                      <Badge className="bg-orange-100/80 text-orange-800 border-orange-200/50 font-semibold px-3 py-1">
+                        syncing...
+                      </Badge>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
             
-            <div className="flex items-center space-x-2">
-              {/* View Mode Controls */}
-              <div className="flex bg-white rounded-lg border shadow-sm">
-                <Button
-                  variant={viewMode === 'network' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('network')}
-                  className={`rounded-r-none ${viewMode === 'network' ? 'bg-blue-600 text-white' : 'text-gray-600'}`}
-                >
-                  Network
-                </Button>
-                <Button
-                  variant={viewMode === 'timeline' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('timeline')}
-                  className={`rounded-none border-x ${viewMode === 'timeline' ? 'bg-blue-600 text-white' : 'text-gray-600'}`}
-                >
-                  Timeline
-                </Button>
-                <Button
-                  variant={viewMode === 'graph' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('graph')}
-                  className={`rounded-none border-x ${viewMode === 'graph' ? 'bg-blue-600 text-white' : 'text-gray-600'}`}
-                >
-                  Graph
-                </Button>
-                <Button
-                  variant={viewMode === 'list' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('list')}
-                  className={`rounded-l-none ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-gray-600'}`}
-                >
-                  List
-                </Button>
+            <div className="flex items-center space-x-3">
+              {/* Enhanced View Mode Controls */}
+              <div className="flex bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-lg p-1">
+                {[
+                  { mode: 'network', icon: '🔗', label: 'Network' },
+                  { mode: 'timeline', icon: '⏱️', label: 'Timeline' },
+                  { mode: 'graph', icon: '📊', label: 'Graph' },
+                  { mode: 'list', icon: '📋', label: 'List' }
+                ].map(({ mode, icon, label }) => (
+                  <Button
+                    key={mode}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setViewMode(mode as any)}
+                    className={`relative px-4 py-2 rounded-xl font-medium transition-all duration-300 ${
+                      viewMode === mode 
+                        ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg transform scale-105' 
+                        : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100/50'
+                    }`}
+                  >
+                    <span className="flex items-center space-x-2">
+                      <span>{icon}</span>
+                      <span className="hidden sm:inline">{label}</span>
+                    </span>
+                    {viewMode === mode && (
+                      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/20 to-indigo-500/20 animate-pulse"></div>
+                    )}
+                  </Button>
+                ))}
               </div>
               
+              {/* Enhanced Refresh Button */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={fetchDKGData}
                 disabled={loading}
-                className="bg-white border-gray-300 hover:bg-gray-50"
+                className="bg-white/80 backdrop-blur-sm border-gray-200/50 hover:bg-white hover:shadow-lg transition-all duration-300 px-4 py-2 rounded-xl font-medium"
               >
-                {loading ? 'Loading...' : 'Refresh'}
+                <div className="flex items-center space-x-2">
+                  <div className={`transition-transform duration-500 ${loading ? 'animate-spin' : ''}`}>
+                    {loading ? '🔄' : '🔄'}
+                  </div>
+                  <span className="hidden sm:inline">
+                    {loading ? 'Syncing...' : 'Refresh'}
+                  </span>
+                </div>
               </Button>
             </div>
           </div>

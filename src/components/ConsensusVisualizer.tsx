@@ -52,6 +52,7 @@ interface ConsensusVisualizerProps {
 export function ConsensusVisualizer({ consensusData, isActive }: ConsensusVisualizerProps) {
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [animationPhase, setAnimationPhase] = useState<'verification' | 'scoring' | 'consensus'>('verification');
+  const [expandedScore, setExpandedScore] = useState<string | null>(null);
 
   useEffect(() => {
     if (isActive && consensusData.length > 0) {
@@ -133,76 +134,100 @@ export function ConsensusVisualizer({ consensusData, isActive }: ConsensusVisual
       }
     ];
 
-    const [expandedScore, setExpandedScore] = useState<string | null>(null);
+    // Debug logging
+    console.log('ConsensusVisualizer - Current expandedScore:', expandedScore);
 
     return (
-      <div className="grid grid-cols-2 gap-2">
-        {scores.map(score => (
-          <div key={score.name} className="relative">
-            <div 
-              className={`flex items-center justify-between p-2 rounded border cursor-pointer hover:bg-gray-50 transition-colors ${
-                expandedScore === score.name ? 'border-blue-300 bg-blue-50' : ''
-              }`}
-              onClick={() => setExpandedScore(expandedScore === score.name ? null : score.name)}
-            >
-              <span className="text-sm font-medium">
-                <span className="text-xs bg-gray-200 px-1 py-0.5 rounded mr-2">{score.icon}</span>
-                {score.name}
-              </span>
-              <div className="flex items-center space-x-2">
-                <Badge className={getScoreColor(score.value)}>
-                  {(score.value * 100).toFixed(0)}%
-                </Badge>
-                <svg 
-                  className={`w-4 h-4 text-gray-400 transition-transform ${
-                    expandedScore === score.name ? 'rotate-180' : ''
-                  }`} 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-semibold text-gray-800">Verification Criteria</h4>
+          <div className="text-xs text-gray-500 bg-yellow-100 px-2 py-1 rounded border border-yellow-200">
+            👆 Click scores for details
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {scores.map(score => (
+            <div key={score.name} className="relative">
+              <div 
+                className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer hover:bg-gray-50 hover:border-blue-300 transition-all duration-200 ${
+                  expandedScore === score.name ? 'border-blue-400 bg-blue-50 shadow-md' : 'border-gray-200 hover:shadow-sm'
+                }`}
+                onClick={() => {
+                  console.log('Score clicked:', score.name, 'Current expanded:', expandedScore);
+                  setExpandedScore(expandedScore === score.name ? null : score.name);
+                }}
+                title="Click for detailed explanation"
+              >
+                <span className="text-sm font-medium">
+                  <span className="text-xs bg-gray-200 px-1.5 py-0.5 rounded mr-2 font-mono">{score.icon}</span>
+                  {score.name}
+                </span>
+                <div className="flex items-center space-x-2">
+                  <Badge className={getScoreColor(score.value)}>
+                    {(score.value * 100).toFixed(0)}%
+                  </Badge>
+                  <svg 
+                    className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+                      expandedScore === score.name ? 'rotate-180' : ''
+                    }`} 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
               </div>
-            </div>
-            
-            {expandedScore === score.name && (
-              <div className="absolute top-full left-0 right-0 z-50 mt-1 p-3 bg-white border border-gray-200 rounded-lg shadow-lg">
-                <div className="text-sm space-y-2">
-                  <div>
-                    <span className="font-semibold text-gray-800">What it measures:</span>
-                    <p className="text-gray-600 mt-1">{score.description}</p>
-                  </div>
-                  <div>
-                    <span className="font-semibold text-gray-800">Evaluation criteria:</span>
-                    <p className="text-gray-600 mt-1">{score.details}</p>
-                  </div>
-                  <div className="pt-2 border-t">
-                    <span className="font-semibold text-gray-800">Score interpretation:</span>
-                    <div className="mt-1 text-xs space-y-1">
-                      <div className="flex justify-between">
-                        <span>90-100%:</span>
-                        <span className="text-green-600 font-medium">Excellent</span>
+              
+              {expandedScore === score.name && (
+                <div className="absolute top-full left-0 right-0 z-[70] mt-2 p-4 bg-white border-2 border-blue-300 rounded-lg shadow-2xl">
+                  <div className="text-sm space-y-3">
+                    <div>
+                      <span className="font-semibold text-gray-800">What it measures:</span>
+                      <p className="text-gray-600 mt-1 leading-relaxed">{score.description}</p>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-gray-800">Evaluation criteria:</span>
+                      <p className="text-gray-600 mt-1 leading-relaxed">{score.details}</p>
+                    </div>
+                    <div className="pt-2 border-t">
+                      <span className="font-semibold text-gray-800">Score interpretation:</span>
+                      <div className="mt-2 text-xs space-y-1.5">
+                        <div className="flex justify-between p-1 rounded bg-green-50">
+                          <span>90-100%:</span>
+                          <span className="text-green-600 font-medium">Excellent</span>
+                        </div>
+                        <div className="flex justify-between p-1 rounded bg-blue-50">
+                          <span>80-89%:</span>
+                          <span className="text-blue-600 font-medium">Good</span>
+                        </div>
+                        <div className="flex justify-between p-1 rounded bg-yellow-50">
+                          <span>70-79%:</span>
+                          <span className="text-yellow-600 font-medium">Fair</span>
+                        </div>
+                        <div className="flex justify-between p-1 rounded bg-red-50">
+                          <span>Below 70%:</span>
+                          <span className="text-red-600 font-medium">Needs Improvement</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span>80-89%:</span>
-                        <span className="text-blue-600 font-medium">Good</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>70-79%:</span>
-                        <span className="text-yellow-600 font-medium">Fair</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Below 70%:</span>
-                        <span className="text-red-600 font-medium">Needs Improvement</span>
-                      </div>
+                    </div>
+                    <div className="pt-2 border-t">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedScore(null);
+                        }}
+                        className="text-xs text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors"
+                      >
+                        Close
+                      </button>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     );
   };
@@ -493,7 +518,10 @@ export function ConsensusVisualizer({ consensusData, isActive }: ConsensusVisual
             className={`cursor-pointer transition-all duration-300 ${
               selectedNode === data.nodeId ? 'ring-2 ring-blue-400' : 'hover:shadow-md'
             }`}
-            onClick={() => setSelectedNode(selectedNode === data.nodeId ? null : data.nodeId)}
+            onClick={() => {
+              setSelectedNode(selectedNode === data.nodeId ? null : data.nodeId);
+              setExpandedScore(null); // Reset expanded score when switching nodes
+            }}
           >
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center justify-between">
