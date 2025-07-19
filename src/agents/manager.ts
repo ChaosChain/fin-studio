@@ -953,12 +953,27 @@ export class AgentManager extends EventEmitter {
         const passedCount = verifications.filter(v => v.endResultCheck.passed && v.causalAudit.passed).length;
 
         // Extract real data metrics from the node
+        const extractedConfidence = 
+          node.resultData?.confidenceLevel || 
+          node.resultData?.confidence || 
+          node.resultData?.analysis?.confidence ||
+          node.resultData?.analysis?.confidenceLevel ||
+          0;
+
+        console.log(`📊 Agent Manager - Extracting confidence for ${node.agentId}:`, {
+          confidenceLevel: node.resultData?.confidenceLevel,
+          confidence: node.resultData?.confidence,
+          analysisConfidence: node.resultData?.analysis?.confidence,
+          analysisConfidenceLevel: node.resultData?.analysis?.confidenceLevel,
+          extractedConfidence
+        });
+
         const realDataMetrics = {
           tokenCount: node.resultData?.costInfo?.totalTokens || 0,
           apiCost: node.resultData?.costInfo?.totalCost || 0,
           duration: node.resultData?.costInfo?.duration || 0,
           contentQuality: this.assessContentQuality(node.resultData),
-          openaiConfidence: node.resultData?.confidenceLevel || node.resultData?.confidence || 0
+          openaiConfidence: extractedConfidence
         };
 
         consensusData.push({

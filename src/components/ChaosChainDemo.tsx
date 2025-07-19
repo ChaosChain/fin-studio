@@ -111,7 +111,7 @@ export default function ChaosChainDemo() {
             🔗 ChaosChain MVP Demo
           </CardTitle>
           <p className="text-center text-muted-foreground">
-            Showcasing Agent Reputation Networks, Decentralized Knowledge Graph, 
+            Showcasing Agent Reputation Relay Networks, Decentralized Knowledge Graph, 
             Proof of Agency, A2A Protocol, and Micro On-Chain Payments
           </p>
         </CardHeader>
