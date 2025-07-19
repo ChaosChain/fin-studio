@@ -5,7 +5,10 @@ import { MarketResearchAgent } from './market-research-agent';
 import { MacroResearchAgent } from './macro-research-agent';
 import { PriceAnalysisAgent } from './price-analysis-agent';
 import { InsightsAgent } from './insights-agent';
+import { VerifierAgent, VerificationResult } from './verifier-agent';
 import { createPaymentMiddleware, DEFAULT_PAYMENT_CONFIG } from '@/lib/payment/payment-middleware';
+import { dkgManager } from '@/lib/dkg';
+import { agentReputationNetwork, ReputationUpdate } from '@/lib/arn';
 import {
   AgentIdentity,
   AgentType,
@@ -21,24 +24,46 @@ import { PaymentMiddlewareConfig } from '@/types/payment';
 // Load environment variables from .env.local
 config({ path: '.env.local' });
 
+interface TaskExecution {
+  taskId: string;
+  symbols: string[];
+  analysisType: string;
+  startTime: Date;
+  components: Map<string, ComponentExecution>;
+  status: 'pending' | 'in_progress' | 'verifying' | 'completed' | 'failed';
+}
+
+interface ComponentExecution {
+  componentType: string;
+  assignedAgents: string[];
+  completedAgents: string[];
+  dkgNodeIds: string[];
+  verificationResults: VerificationResult[];
+  consensusReached: boolean;
+}
+
 export class AgentManager extends EventEmitter {
   private agents: Map<string, any>;
   private a2aAgents: Map<string, A2AAgent>;
+  private verifierAgents: Map<string, VerifierAgent>;
   private registry: Map<string, A2ARegistryEntry>;
   private messageQueue: A2AMessage[];
   private isRunning: boolean;
   private ports: Map<string, number>;
   private paymentConfig: PaymentMiddlewareConfig;
   private paymentMiddleware: any;
+  private activeTasks: Map<string, TaskExecution>;
 
   constructor(paymentConfig?: PaymentMiddlewareConfig) {
     super();
     this.agents = new Map();
     this.a2aAgents = new Map();
+    this.verifierAgents = new Map();
     this.registry = new Map();
     this.messageQueue = [];
     this.isRunning = false;
     this.ports = new Map();
+    this.activeTasks = new Map();
     
     // Initialize payment configuration
     this.paymentConfig = paymentConfig || this.getDefaultPaymentConfig();
@@ -49,6 +74,11 @@ export class AgentManager extends EventEmitter {
     this.ports.set('macro-research-agent', 8082);
     this.ports.set('price-analysis-agent', 8083);
     this.ports.set('insights-agent', 8084);
+    
+    // Initialize verifier agents (ports 8085-8088)
+    for (let i = 1; i <= 4; i++) {
+      this.ports.set(`verifier-agent-${i}`, 8084 + i);
+    }
   }
 
   async initialize(): Promise<void> {
@@ -95,73 +125,30 @@ export class AgentManager extends EventEmitter {
     const insightsAgent = new InsightsAgent();
     this.agents.set('insights-agent', insightsAgent);
 
-    console.log(`Initialized ${this.agents.size} specialized agents`);
+    // Initialize Verifier Agents
+    for (let i = 1; i <= 4; i++) {
+      const verifierAgent = new VerifierAgent(i.toString());
+      this.verifierAgents.set(`verifier-agent-${i}`, verifierAgent);
+    }
+
+    console.log(`Initialized ${this.agents.size} specialized agents and ${this.verifierAgents.size} verifier agents`);
+    
+    // Initialize agent reputations
+    for (const [agentId, agent] of this.agents) {
+      agentReputationNetwork.initializeAgent(agentId, agent.getIdentity().name);
+    }
   }
 
   private async setupA2ACommunication(): Promise<void> {
-    console.log('Setting up A2A communication layer...');
+    console.log('Setting up A2A communication layer (demo mode)...');
 
+    // For demo purposes, skip the complex WebSocket setup
+    // and just register the agents as active
     for (const [agentId, agent] of this.agents) {
-      const port = this.ports.get(agentId);
-      if (!port) {
-        throw new Error(`No port assigned for agent: ${agentId}`);
-      }
-
-      // Check if agent is already running
-      if (this.a2aAgents.has(agentId)) {
-        console.log(`Agent ${agentId} is already running, skipping...`);
-        continue;
-      }
-
-      // Create middleware array with payment middleware
-      const middleware = [
-        async (message: A2AMessage, next: () => Promise<void>) => {
-          await this.paymentMiddleware.handleMessage(message, next);
-        }
-      ];
-
-      // Create A2A agent wrapper
-      const a2aAgent = new A2AAgent({
-        identity: agent.getIdentity(),
-        handlers: agent.getHandlers(),
-        middleware,
-        registry: this.createRegistryInterface()
-      });
-
-      // Set up event handlers
-      a2aAgent.on('started', (data) => {
-        console.log(`A2A Agent ${data.identity.name} started on port ${data.port}`);
-      });
-
-      a2aAgent.on('message_processed', (data) => {
-        this.updateAgentMetrics(agentId, 'message_processed');
-      });
-
-      a2aAgent.on('error', (data) => {
-        console.error(`A2A Agent ${agentId} error:`, data.error);
-        this.updateAgentMetrics(agentId, 'error');
-      });
-
-      try {
-        // Start the A2A agent
-        await a2aAgent.start(port);
-        this.a2aAgents.set(agentId, a2aAgent);
-      } catch (error) {
-        console.error(`Failed to start agent ${agentId} on port ${port}:`, error);
-        // Try to find an available port
-        const availablePort = await this.findAvailablePort(port);
-        if (availablePort !== port) {
-          console.log(`Retrying agent ${agentId} on port ${availablePort}`);
-          await a2aAgent.start(availablePort);
-          this.ports.set(agentId, availablePort);
-          this.a2aAgents.set(agentId, a2aAgent);
-        } else {
-          throw error;
-        }
-      }
+      console.log(`Agent ${agentId} registered in demo mode`);
     }
 
-    console.log('A2A communication layer set up successfully');
+    console.log('A2A communication layer set up successfully (demo mode)');
   }
 
   private getDefaultPaymentConfig(): PaymentMiddlewareConfig {
@@ -503,18 +490,617 @@ export class AgentManager extends EventEmitter {
     });
   }
 
+  /**
+   * Comprehensive analysis with multi-agent assignment, DKG, and verification
+   */
+  async requestComprehensiveAnalysis(symbols: string[], analysisType: string = 'comprehensive'): Promise<any> {
+    if (!this.isRunning) {
+      throw new Error('Agent Manager not initialized');
+    }
+
+    const taskId = this.generateTaskId();
+    console.log(`Starting comprehensive analysis task ${taskId} for ${symbols.join(', ')}`);
+
+    // Set current task in DKG manager (clears previous task nodes)
+    dkgManager.setCurrentTask(taskId);
+
+    // Create task execution
+    const taskExecution: TaskExecution = {
+      taskId,
+      symbols,
+      analysisType,
+      startTime: new Date(),
+      components: new Map(),
+      status: 'pending'
+    };
+
+    this.activeTasks.set(taskId, taskExecution);
+
+    try {
+      // Step 1: Task Decomposition - assign multiple agents per component
+      await this.decomposeAndAssignTask(taskExecution);
+
+      // Step 2: Execute multi-agent analysis
+      await this.executeMultiAgentAnalysis(taskExecution);
+
+      // Step 3: Verification by verifier network
+      await this.performVerification(taskExecution);
+
+      // Step 4: Consensus and payment release
+      await this.processConsensusAndPayment(taskExecution);
+
+      taskExecution.status = 'completed';
+      console.log(`Comprehensive analysis task ${taskId} completed successfully`);
+
+      return {
+        taskId,
+        status: 'completed',
+        results: this.aggregateTaskResults(taskExecution),
+        reputation: this.getTaskReputationSummary(taskExecution)
+      };
+
+    } catch (error) {
+      taskExecution.status = 'failed';
+      console.error(`Comprehensive analysis task ${taskId} failed:`, error);
+      throw error;
+    }
+  }
+
+  private async decomposeAndAssignTask(taskExecution: TaskExecution): Promise<void> {
+    const { taskId, symbols } = taskExecution;
+    
+    // Define components and assign multiple agents with different models for redundancy
+    // Each component gets 2 agents using different AI models for diversity
+    const componentAssignments = {
+      'sentiment': [
+        { agentId: 'market-research-agent-gpt4', model: 'gpt-4.1-2025-04-14' },
+        { agentId: 'market-research-agent-gpt4o', model: 'gpt-4o-2024-08-06' }
+      ],
+      'technical': [
+        { agentId: 'price-analysis-agent-gpt4', model: 'gpt-4.1-2025-04-14' },
+        { agentId: 'price-analysis-agent-gpt4o', model: 'gpt-4o-2024-08-06' }
+      ],
+      'macro': [
+        { agentId: 'macro-research-agent-gpt4', model: 'gpt-4.1-2025-04-14' },
+        { agentId: 'macro-research-agent-gpt4o', model: 'gpt-4o-2024-08-06' }
+      ],
+      'insights': [
+        { agentId: 'insights-agent-gpt4', model: 'gpt-4.1-2025-04-14' },
+        { agentId: 'insights-agent-gpt4o', model: 'gpt-4o-2024-08-06' }
+      ]
+    };
+
+    for (const [componentType, agentConfigs] of Object.entries(componentAssignments)) {
+      const componentExecution: ComponentExecution = {
+        componentType,
+        assignedAgents: agentConfigs.map(config => config.agentId),
+        completedAgents: [],
+        dkgNodeIds: [],
+        verificationResults: [],
+        consensusReached: false
+      };
+
+      taskExecution.components.set(componentType, componentExecution);
+    }
+
+    taskExecution.status = 'in_progress';
+    console.log(`Task ${taskId} decomposed into ${taskExecution.components.size} components with ${Object.values(componentAssignments).flat().length} multi-model agents`);
+  }
+
+  private async executeMultiAgentAnalysis(taskExecution: TaskExecution): Promise<void> {
+    const { taskId, symbols } = taskExecution;
+    const promises: Promise<void>[] = [];
+
+    for (const [componentType, componentExecution] of taskExecution.components) {
+      for (const agentId of componentExecution.assignedAgents) {
+        promises.push(this.executeAgentTask(taskId, componentType, agentId, symbols));
+      }
+    }
+
+    await Promise.all(promises);
+    console.log(`All agents completed analysis for task ${taskId}`);
+  }
+
+  private async executeAgentTask(
+    taskId: string, 
+    componentType: string, 
+    agentId: string, 
+    symbols: string[]
+  ): Promise<void> {
+    try {
+      // Get the model for this specific agent instance
+      const model = this.getModelForAgent(agentId);
+      
+      // Get or create specialized agent instance
+      const agent = await this.getSpecializedAgent(agentId, model);
+
+      // Execute real agent analysis based on component type
+      const analysisResult = await this.executeRealAgentAnalysis(agent, agentId, componentType, symbols, model);
+
+      // Create and sign DKG node
+      const dkgNode = dkgManager.createSignedNode(
+        agentId,
+        analysisResult,
+        [`${componentType}_data_source`, 'openai_api', 'market_data', model],
+        `Real analysis performed for ${componentType} component using ${agentId} (${model})`,
+        undefined, // parentNodes
+        taskId,
+        componentType,
+        agentId // Use agentId as private key for demo
+      );
+
+      // Add to DKG
+      dkgManager.addNode(dkgNode);
+
+      // Update component execution
+      const taskExecution = this.activeTasks.get(taskId)!;
+      const componentExecution = taskExecution.components.get(componentType)!;
+      componentExecution.completedAgents.push(agentId);
+      componentExecution.dkgNodeIds.push(dkgNode.id);
+
+      console.log(`Agent ${agentId} (${model}) completed real ${componentType} analysis for task ${taskId}`);
+
+    } catch (error) {
+      console.error(`Agent ${agentId} failed ${componentType} analysis for task ${taskId}:`, error);
+      throw error;
+    }
+  }
+
+  private async executeRealAgentAnalysis(agent: any, agentId: string, componentType: string, symbols: string[], model: string): Promise<any> {
+    // Execute real agent analysis based on component type and agent
+    try {
+      let result: any;
+
+      switch (componentType) {
+        case 'sentiment':
+          if (agentId.includes('market-research-agent')) {
+            // Create A2A message for sentiment analysis
+            const message: A2AMessage = {
+              id: this.generateId(),
+              type: A2AMessageType.REQUEST,
+              timestamp: new Date(),
+              source: {
+                id: 'agent-manager',
+                name: 'Agent Manager',
+                type: AgentType.ORCHESTRATOR,
+                version: '1.0.0',
+                capabilities: ['orchestration', 'coordination']
+              },
+              target: agent.getIdentity(),
+              payload: {
+                action: 'analyze_market_sentiment',
+                data: {
+                  symbols,
+                  timeframe: 'daily'
+                }
+              }
+            };
+
+            // Call the agent's handler directly
+            const handler = agent.getHandlers().get('analyze_market_sentiment');
+            if (handler) {
+              const response = await handler(message);
+              result = response.payload.data;
+            } else {
+              throw new Error(`No sentiment analysis handler found for ${agentId}`);
+            }
+          }
+          break;
+
+        case 'technical':
+          if (agentId.includes('price-analysis-agent')) {
+            // Create A2A message for technical analysis
+            const message: A2AMessage = {
+              id: this.generateId(),
+              type: A2AMessageType.REQUEST,
+              timestamp: new Date(),
+              source: {
+                id: 'agent-manager',
+                name: 'Agent Manager',
+                type: AgentType.ORCHESTRATOR,
+                version: '1.0.0',
+                capabilities: ['orchestration', 'coordination']
+              },
+              target: agent.getIdentity(),
+              payload: {
+                action: 'analyze_technical_indicators',
+                data: {
+                  symbols,
+                  timeframe: 'daily'
+                }
+              }
+            };
+
+            // Call the agent's handler directly
+            const handler = agent.getHandlers().get('analyze_technical_indicators');
+            if (handler) {
+              const response = await handler(message);
+              result = response.payload.data;
+            } else {
+              throw new Error(`No technical analysis handler found for ${agentId}`);
+            }
+          }
+          break;
+
+        case 'macro':
+          if (agentId.includes('macro-research-agent')) {
+            // Create A2A message for macro analysis
+            const message: A2AMessage = {
+              id: this.generateId(),
+              type: A2AMessageType.REQUEST,
+              timestamp: new Date(),
+              source: {
+                id: 'agent-manager',
+                name: 'Agent Manager',
+                type: AgentType.ORCHESTRATOR,
+                version: '1.0.0',
+                capabilities: ['orchestration', 'coordination']
+              },
+              target: agent.getIdentity(),
+              payload: {
+                action: 'analyze_economic_indicators',
+                data: {
+                  indicators: ['GDP', 'inflation', 'employment'],
+                  regions: ['US'],
+                  timeframe: 'quarterly'
+                }
+              }
+            };
+
+            // Call the agent's handler directly
+            const handler = agent.getHandlers().get('analyze_economic_indicators');
+            if (handler) {
+              const response = await handler(message);
+              result = response.payload.data;
+            } else {
+              throw new Error(`No macro analysis handler found for ${agentId}`);
+            }
+          }
+          break;
+
+        case 'insights':
+          if (agentId.includes('insights-agent')) {
+            // Create A2A message for insights generation
+            const message: A2AMessage = {
+              id: this.generateId(),
+              type: A2AMessageType.REQUEST,
+              timestamp: new Date(),
+              source: {
+                id: 'agent-manager',
+                name: 'Agent Manager',
+                type: AgentType.ORCHESTRATOR,
+                version: '1.0.0',
+                capabilities: ['orchestration', 'coordination']
+              },
+              target: agent.getIdentity(),
+              payload: {
+                action: 'generate_insights',
+                data: {
+                  symbols,
+                  analysisTypes: ['sentiment', 'technical', 'macro']
+                }
+              }
+            };
+
+            // Call the agent's handler directly
+            const handler = agent.getHandlers().get('generate_insights');
+            if (handler) {
+              const response = await handler(message);
+              result = response.payload.data;
+            } else {
+              throw new Error(`No insights generation handler found for ${agentId}`);
+            }
+          }
+          break;
+
+        default:
+          throw new Error(`Unknown component type: ${componentType}`);
+      }
+
+      if (!result) {
+        throw new Error(`No result from ${agentId} for ${componentType} analysis`);
+      }
+
+      console.log(`Real analysis completed by ${agentId} for ${componentType}:`, result);
+      return result;
+
+    } catch (error) {
+      console.error(`Error in real agent analysis for ${agentId}:`, error);
+      // Fallback to basic structured result if real analysis fails
+      return {
+        analysisType: componentType,
+        agentId,
+        symbols,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        fallbackResult: true,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  private async performVerification(taskExecution: TaskExecution): Promise<void> {
+    const { taskId } = taskExecution;
+    taskExecution.status = 'verifying';
+
+    const verificationPromises: Promise<void>[] = [];
+
+    // For each component, have all verifiers evaluate all DKG nodes
+    for (const [componentType, componentExecution] of taskExecution.components) {
+      for (const nodeId of componentExecution.dkgNodeIds) {
+        for (const [verifierId, verifier] of this.verifierAgents) {
+          verificationPromises.push(
+            this.performSingleVerification(verifier, nodeId, taskId, componentExecution)
+          );
+        }
+      }
+    }
+
+    await Promise.all(verificationPromises);
+    console.log(`Verification completed for task ${taskId}`);
+  }
+
+  private async performSingleVerification(
+    verifier: VerifierAgent,
+    nodeId: string,
+    taskId: string,
+    componentExecution: ComponentExecution
+  ): Promise<void> {
+    try {
+      const node = dkgManager.getNode(nodeId);
+      if (!node) return;
+
+      // Simulate verification (in real implementation, this would use A2A messages)
+      const verificationResult = await verifier['performVerification'](node);
+      componentExecution.verificationResults.push(verificationResult);
+
+    } catch (error) {
+      console.error(`Verification failed for node ${nodeId}:`, error);
+    }
+  }
+
+  private async processConsensusAndPayment(taskExecution: TaskExecution): Promise<void> {
+    const { taskId } = taskExecution;
+
+    for (const [componentType, componentExecution] of taskExecution.components) {
+      // Group verification results by node
+      const nodeVerifications = new Map<string, VerificationResult[]>();
+      
+      for (const result of componentExecution.verificationResults) {
+        if (!nodeVerifications.has(result.nodeId)) {
+          nodeVerifications.set(result.nodeId, []);
+        }
+        nodeVerifications.get(result.nodeId)!.push(result);
+      }
+
+      // Check consensus for each node
+      for (const [nodeId, verifications] of nodeVerifications) {
+        const node = dkgManager.getNode(nodeId);
+        if (!node) continue;
+
+        const consensus = this.calculateConsensus(verifications);
+        componentExecution.consensusReached = consensus.accepted;
+
+        // Update agent reputation
+        const reputationUpdate: ReputationUpdate = {
+          agentId: node.agentId,
+          taskId,
+          verificationResults: verifications,
+          taskStartTime: taskExecution.startTime,
+          taskEndTime: new Date()
+        };
+
+        agentReputationNetwork.updateReputation(reputationUpdate);
+
+        // Simulate payment release if consensus reached
+        if (consensus.accepted) {
+          console.log(`✅ Consensus reached for agent ${node.agentId} - payment released`);
+          // In real implementation: await this.releasePayment(node.agentId, consensus.amount);
+        } else {
+          console.log(`❌ Consensus not reached for agent ${node.agentId} - payment withheld`);
+        }
+      }
+    }
+  }
+
+  private calculateConsensus(verifications: VerificationResult[]): { accepted: boolean; averageScore: number } {
+    if (verifications.length === 0) return { accepted: false, averageScore: 0 };
+
+    // Calculate weighted consensus based on real data metrics
+    const averageScore = verifications.reduce((sum, v) => {
+      const scores = Object.values(v.scoreVector);
+      const avgScore = scores.reduce((s, score) => s + score, 0) / scores.length;
+      return sum + avgScore;
+    }, 0) / verifications.length;
+
+    // More sophisticated consensus: require both high average score AND majority pass
+    const passedCount = verifications.filter(v => v.endResultCheck.passed && v.causalAudit.passed).length;
+    const majorityPassed = passedCount > verifications.length / 2;
+    const highQualityScore = averageScore >= 0.6; // Minimum quality threshold
+
+    const accepted = majorityPassed && highQualityScore;
+
+    console.log(`Consensus calculation: ${passedCount}/${verifications.length} passed, avg score: ${averageScore.toFixed(3)}, accepted: ${accepted}`);
+
+    return { accepted, averageScore };
+  }
+
+  /**
+   * Get consensus data for visualization
+   */
+  async getConsensusData(taskId: string): Promise<any[]> {
+    const taskExecution = this.activeTasks.get(taskId);
+    if (!taskExecution) return [];
+
+    const consensusData: any[] = [];
+
+    for (const [componentType, componentExecution] of taskExecution.components) {
+      // Group verifications by node
+      const nodeVerifications = new Map<string, VerificationResult[]>();
+      
+      for (const result of componentExecution.verificationResults) {
+        if (!nodeVerifications.has(result.nodeId)) {
+          nodeVerifications.set(result.nodeId, []);
+        }
+        nodeVerifications.get(result.nodeId)!.push(result);
+      }
+
+      // Create consensus data for each node
+      for (const [nodeId, verifications] of nodeVerifications) {
+        const node = dkgManager.getNode(nodeId);
+        if (!node) continue;
+
+        const consensus = this.calculateConsensus(verifications);
+        const passedCount = verifications.filter(v => v.endResultCheck.passed && v.causalAudit.passed).length;
+
+        // Extract real data metrics from the node
+        const realDataMetrics = {
+          tokenCount: node.resultData?.costInfo?.totalTokens || 0,
+          apiCost: node.resultData?.costInfo?.totalCost || 0,
+          duration: node.resultData?.costInfo?.duration || 0,
+          contentQuality: this.assessContentQuality(node.resultData),
+          openaiConfidence: node.resultData?.confidenceLevel || node.resultData?.confidence || 0
+        };
+
+        consensusData.push({
+          taskId,
+          componentType,
+          nodeId,
+          agentId: node.agentId,
+          verifications,
+          consensusReached: consensus.accepted,
+          averageScore: consensus.averageScore,
+          passedCount,
+          totalVerifiers: verifications.length,
+          realDataMetrics
+        });
+      }
+    }
+
+    return consensusData;
+  }
+
+  /**
+   * Assess content quality for visualization
+   */
+  private assessContentQuality(resultData: any): string {
+    if (!resultData) return 'No Data';
+    
+    const hasStructuredData = typeof resultData === 'object' && Object.keys(resultData).length > 3;
+    const hasDetailedAnalysis = resultData.analysis || resultData.technicalAnalysis || resultData.sentimentAnalysis;
+    const tokenCount = resultData.costInfo?.totalTokens || 0;
+    
+    if (tokenCount > 2000 && hasDetailedAnalysis && hasStructuredData) return 'Excellent';
+    if (tokenCount > 1000 && hasDetailedAnalysis) return 'Good';
+    if (tokenCount > 500 && hasStructuredData) return 'Fair';
+    return 'Basic';
+  }
+
+  /**
+   * Get the model configuration for a specific agent ID
+   */
+  private getModelForAgent(agentId: string): string {
+    if (agentId.includes('-gpt4o')) return 'gpt-4o-2024-08-06';
+    if (agentId.includes('-gpt4')) return 'gpt-4.1-2025-04-14';
+    return 'gpt-4.1-2025-04-14'; // Default fallback
+  }
+
+  /**
+   * Get or create a specialized agent instance with specific model
+   */
+  private async getSpecializedAgent(agentId: string, model: string): Promise<any> {
+    // Check if we already have this specialized agent
+    if (this.agents.has(agentId)) {
+      return this.agents.get(agentId);
+    }
+
+    // Create new specialized agent based on base type
+    let agent: any;
+    // Parse base agent type from agentId by removing the model suffix
+    // Examples: "market-research-agent-gpt4" → "market-research-agent"
+    //           "insights-agent-gpt4o" → "insights-agent"
+    const parts = agentId.split('-');
+    const baseAgentType = parts.slice(0, -1).join('-');
+    
+    switch (baseAgentType) {
+      case 'market-research-agent':
+        agent = new MarketResearchAgent();
+        // Override the model in the agent
+        agent.setModel(model);
+        break;
+      case 'price-analysis-agent':
+        agent = new PriceAnalysisAgent();
+        agent.setModel(model);
+        break;
+      case 'macro-research-agent':
+        agent = new MacroResearchAgent();
+        agent.setModel(model);
+        break;
+      case 'insights-agent':
+        agent = new InsightsAgent();
+        agent.setModel(model);
+        break;
+      default:
+        throw new Error(`Unknown agent type for ${agentId}`);
+    }
+
+    // Store the specialized agent
+    this.agents.set(agentId, agent);
+    
+    // Initialize reputation for the specialized agent
+    agentReputationNetwork.initializeAgent(agentId, `${agent.getIdentity().name} (${model})`);
+    
+    console.log(`Created specialized agent: ${agentId} using model ${model}`);
+    return agent;
+  }
+
+  private aggregateTaskResults(taskExecution: TaskExecution): any {
+    const results: any = {};
+    
+    for (const [componentType, componentExecution] of taskExecution.components) {
+      const nodes = componentExecution.dkgNodeIds.map(id => dkgManager.getNode(id)).filter(Boolean);
+      results[componentType] = {
+        nodes: nodes.length,
+        consensus: componentExecution.consensusReached,
+        verifications: componentExecution.verificationResults.length
+      };
+    }
+
+    return results;
+  }
+
+  private getTaskReputationSummary(taskExecution: TaskExecution): any {
+    const summary: any = {};
+    
+    for (const [componentType, componentExecution] of taskExecution.components) {
+      for (const agentId of componentExecution.assignedAgents) {
+        const reputation = agentReputationNetwork.getReputation(agentId);
+        if (reputation) {
+          summary[agentId] = {
+            reputationScore: reputation.reputationScore,
+            totalTasks: reputation.totalTasks,
+            acceptanceRate: reputation.totalTasks > 0 ? reputation.acceptedTasks / reputation.totalTasks : 0
+          };
+        }
+      }
+    }
+
+    return summary;
+  }
+
+  private generateTaskId(): string {
+    return 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }
+
   async shutdown(): Promise<void> {
     console.log('Shutting down Agent Manager...');
     this.isRunning = false;
 
-    // Stop all A2A agents
-    const shutdownPromises = Array.from(this.a2aAgents.values()).map(agent => agent.stop());
-    await Promise.all(shutdownPromises);
-
-    // Clear all maps
+    // Clear all maps (no A2A agents to stop in demo mode)
     this.agents.clear();
     this.a2aAgents.clear();
+    this.verifierAgents.clear();
     this.registry.clear();
+    this.activeTasks.clear();
     this.messageQueue.length = 0;
 
     console.log('Agent Manager shutdown complete');

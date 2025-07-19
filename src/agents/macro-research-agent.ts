@@ -17,6 +17,7 @@ import { costTracker, extractTokenUsage, logApiCallDetails } from '@/lib/cost-tr
 export class MacroResearchAgent {
   private openai: OpenAI;
   private identity: AgentIdentity;
+  private model: string = 'gpt-4.1-2025-04-14'; // Default model
 
   constructor() {
     this.openai = new OpenAI({
@@ -43,6 +44,21 @@ export class MacroResearchAgent {
 
   getIdentity(): AgentIdentity {
     return this.identity;
+  }
+
+  /**
+   * Set the AI model for this agent instance
+   */
+  setModel(model: string): void {
+    this.model = model;
+    console.log(`MacroResearchAgent model set to: ${model}`);
+  }
+
+  /**
+   * Get the current AI model
+   */
+  getModel(): string {
+    return this.model;
   }
 
   getHandlers(): Map<string, A2AHandlerFunction> {
@@ -107,7 +123,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
 
       const startTime = Date.now();
       console.log('🚀 Macro Research Agent - Making OpenAI API call:', {
-        "model": "gpt-4.1",
+        "model": this.model,
         action: 'analyze_economic_indicators',
         maxTokens: 4096,
         temperature: 0.2,
@@ -115,7 +131,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
       });
 
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -252,7 +268,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
       Provide specific rate forecasts, timing, and probability assessments.`;
 
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -378,7 +394,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
       Provide specific growth forecasts, confidence intervals, and policy recommendations.`;
 
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -506,7 +522,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
 
       const startTime = Date.now();
       console.log('🚀 Macro Research Agent - Making OpenAI API call:', {
-        "model": "gpt-4.1",
+        "model": this.model,
         action: 'analyze_inflation',
         maxTokens: 4096,
         temperature: 0.2,
@@ -514,7 +530,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
       });
 
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -597,7 +613,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
       // Use OpenAI to analyze employment
       const searchQuery = `Analyze current employment situation for ${region || 'major economies'}. Include ${metrics?.join(', ') || 'unemployment rate, job growth, wage growth'} and labor market trends.`;
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -646,7 +662,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
       // Use OpenAI to analyze currency trends
       const searchQuery = `Analyze currency trends for ${currencyPairs?.join(', ') || 'major currency pairs'} over the ${timeframe || 'recent period'}. Include central bank policies and economic factors.`;
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -694,7 +710,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
       // Use OpenAI to get macro outlook
       const searchQuery = `Provide a comprehensive macroeconomic outlook for the ${timeframe || 'next 6-12 months'}. Focus on ${focus || 'global economic trends, monetary policy, and market implications'}.`;
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -743,7 +759,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
       // Use OpenAI to analyze policy impact
       const searchQuery = `Analyze the economic and market impact of ${policy} in ${region || 'major economies'}. Include effects on ${sectors?.join(', ') || 'key economic sectors'}.`;
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",

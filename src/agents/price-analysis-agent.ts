@@ -14,10 +14,12 @@ import {
   RequestStatus
 } from '@/types/fintech';
 import { costTracker, extractTokenUsage, logApiCallDetails } from '@/lib/cost-tracker';
+import { marketDataService } from '@/lib/market-data-service';
 
 export class PriceAnalysisAgent {
   private openai: OpenAI;
   private identity: AgentIdentity;
+  private model: string = 'gpt-4.1-2025-04-14'; // Default model
 
   constructor() {
     this.openai = new OpenAI({
@@ -44,6 +46,21 @@ export class PriceAnalysisAgent {
 
   getIdentity(): AgentIdentity {
     return this.identity;
+  }
+
+  /**
+   * Set the AI model for this agent instance
+   */
+  setModel(model: string): void {
+    this.model = model;
+    console.log(`PriceAnalysisAgent model set to: ${model}`);
+  }
+
+  /**
+   * Get the current AI model
+   */
+  getModel(): string {
+    return this.model;
   }
 
   getHandlers(): Map<string, A2AHandlerFunction> {
@@ -135,7 +152,7 @@ export class PriceAnalysisAgent {
 
       const startTime = Date.now();
       console.log('🚀 Price Analysis Agent - Making OpenAI API call:', {
-        "model": "gpt-4.1",
+        "model": this.model,
         action: 'get_price_data',
         maxTokens: 4096,
         temperature: 0.1,
@@ -143,7 +160,7 @@ export class PriceAnalysisAgent {
       });
       
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -292,7 +309,7 @@ export class PriceAnalysisAgent {
 
       const startTime = Date.now();
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -370,7 +387,7 @@ export class PriceAnalysisAgent {
       // Use OpenAI to identify chart patterns
       const searchQuery = `Identify chart patterns and technical formations for ${symbols?.join(', ') || 'major market indices'}. Look for head and shoulders, triangles, flags, breakouts, and other technical patterns over ${timeframe || 'recent weeks'}.`;
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -419,7 +436,7 @@ export class PriceAnalysisAgent {
       // Use OpenAI to analyze support and resistance levels
       const searchQuery = `Analyze support and resistance levels for ${symbols?.join(', ') || 'major market indices'}. Identify key price levels, breakout points, and technical levels over ${timeframe || 'recent months'}.`;
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -468,7 +485,7 @@ export class PriceAnalysisAgent {
       // Use OpenAI to analyze volatility
       const searchQuery = `Analyze volatility patterns for ${symbols?.join(', ') || 'major market indices'}. Include historical volatility, implied volatility, VIX levels, and volatility trends over ${timeframe || 'recent period'}.`;
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -558,7 +575,7 @@ export class PriceAnalysisAgent {
       // Use OpenAI to analyze momentum
       const searchQuery = `Analyze momentum indicators for ${symbols?.join(', ') || 'major market indices'}. Include price momentum, volume momentum, and momentum shifts over ${timeframe || 'recent period'}.`;
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -608,7 +625,7 @@ export class PriceAnalysisAgent {
       const searchQuery = `Assess risk metrics for ${symbols?.join(', ') || 'major market indices'}. Include ${riskMetrics?.join(', ') || 'VaR, beta, correlation, drawdown'} analysis over ${timeframe || 'recent period'}.`;
       const startTime = Date.now();
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -1199,50 +1216,61 @@ export class PriceAnalysisAgent {
     try {
       const { symbols, timeframe, analysisType } = message.payload.data || {};
       
-      // Use OpenAI to get market data and analysis
+      // Fetch real market data first
+      console.log(`🚀 Price Analysis Agent - Fetching real market data for: ${symbols?.join(', ')}`);
+      const realMarketData = await marketDataService.getBatchMarketData(symbols || ['SPY']);
+      
+      // Create analysis prompt with real market data
+      const marketDataSummary = realMarketData.map(data => 
+        `${data.symbol}: $${data.price.toFixed(2)} (${data.changePercent >= 0 ? '+' : ''}${data.changePercent.toFixed(2)}%, Vol: ${data.volume.toLocaleString()})`
+      ).join(', ');
+      
       const searchQuery = `
-Analyze market data for ${symbols?.join(', ') || 'major market indices'} over ${timeframe || 'the recent period'}.
+Analyze the following REAL market data for ${symbols?.join(', ') || 'major market indices'} over ${timeframe || 'the recent period'}:
 
-Please provide structured analysis with the following format:
+**CURRENT MARKET DATA:**
+${marketDataSummary}
+
+Based on this real-time data, provide structured analysis with the following format:
 
 **PRICE ACTION ANALYSIS:**
-- Current Price: [specific price level]
-- Recent Performance: [percentage change]
-- Key Support Level: [specific price]
-- Key Resistance Level: [specific price]
-- Price Momentum: [bullish/bearish/neutral]
+- Current Price: [use actual prices from data above]
+- Recent Performance: [use actual percentage changes]
+- Key Support Level: [calculate based on current price]
+- Key Resistance Level: [calculate based on current price]
+- Price Momentum: [analyze based on actual changes]
 
 **TECHNICAL INDICATORS:**
-- Moving Averages: [50-day and 200-day levels]
-- RSI Level: [specific number]
-- MACD Signal: [bullish/bearish/neutral]
-- Bollinger Bands: [position within bands]
+- Moving Averages: [estimate 50-day and 200-day levels relative to current price]
+- RSI Level: [estimate based on recent price action]
+- MACD Signal: [analyze momentum from price changes]
+- Bollinger Bands: [estimate position within bands]
 
 **RISK METRICS:**
-- Value at Risk: [specific percentage]
-- Expected Shortfall: [specific percentage]
-- Maximum Drawdown: [specific percentage]
-- Sharpe Ratio: [specific number]
+- Value at Risk: [calculate based on current volatility]
+- Expected Shortfall: [estimate tail risk]
+- Maximum Drawdown: [historical context]
+- Sharpe Ratio: [risk-adjusted return estimate]
 
 **PRICE TARGETS:**
-- Bullish Target: [specific price level]
-- Bearish Target: [specific price level]
-- Neutral Target: [specific price level]
+- Bullish Target: [specific price level above current]
+- Bearish Target: [specific price level below current]
+- Neutral Target: [price level near current]
 - Timeframe: [short/medium/long term]
 
 **TRADING RECOMMENDATIONS:**
-- Entry Points: [specific price levels]
-- Stop Loss: [specific price level]
-- Take Profit: [specific price level]
-- Position Sizing: [percentage of portfolio]
+- Entry Points: [specific price levels based on current data]
+- Stop Loss: [specific price level for risk management]
+- Take Profit: [specific price level for profit taking]
+- Position Sizing: [percentage of portfolio recommendation]
 
-Provide exact numbers, specific price levels, and actionable trading insights. Avoid generic statements.
+Use the ACTUAL market data provided above. Provide exact numbers, specific price levels, and actionable trading insights based on real market conditions.
       `;
 
       const startTime = Date.now();
       
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -1283,7 +1311,7 @@ Provide exact numbers, specific price levels, and actionable trading insights. A
 
       const analysis = this.parseEnhancedPriceAnalysis(response.choices[0].message.content || '');
       
-      // Embed cost information in response
+      // Embed cost information and real market data in response
       const responseWithCost = {
         id: this.generateId(),
         type: 'response' as any,
@@ -1295,6 +1323,7 @@ Provide exact numbers, specific price levels, and actionable trading insights. A
           data: {
             symbols: symbols || ['SPY'],
             timeframe: timeframe || 'daily',
+            marketData: realMarketData, // Include real market data
             analysis,
             priceTargets: analysis.priceTargets,
             technicalSignals: analysis.technicalSignals,

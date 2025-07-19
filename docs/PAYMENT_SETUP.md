@@ -26,6 +26,9 @@ Create a `.env.local` file with the following configuration:
 # OpenAI API Key (Required)
 OPENAI_API_KEY=your_openai_api_key_here
 
+# Market Data API Keys (Optional - falls back to mock data if not provided)
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_api_key_here
+
 # Agent Manager Configuration
 AGENT_MANAGER_PORT=8080
 
@@ -36,6 +39,17 @@ OPERATOR_PRIVATE_KEY=0x000000000000000000000000000000000000000000000000000000000
 FACILITATOR_URL=https://x402.org/facilitator
 ESCROW_CONTRACT_ADDRESS=0xBdEA0D1bcC5966192B070Fdf62aB4EF5b4420cff
 ```
+
+## Market Data API Setup
+
+### Alpha Vantage API (for Stock Data)
+1. Visit [Alpha Vantage](https://www.alphavantage.co/support/#api-key)
+2. Sign up for a free API key
+3. Add `ALPHA_VANTAGE_API_KEY=your_key_here` to your `.env.local`
+
+### CoinGecko API (for Crypto Data)
+- No API key required for basic usage
+- The system automatically falls back to mock data if APIs are unavailable
 
 ## Agent Pricing Configuration
 

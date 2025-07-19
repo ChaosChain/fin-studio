@@ -48,7 +48,7 @@ export function QuickActions({ selectedSymbols, onSymbolsChange }: QuickActionsP
             type="text"
             value={customSymbol}
             onChange={(e) => setCustomSymbol(e.target.value)}
-            placeholder="Add symbol (e.g., NVDA)"
+            placeholder="Add symbol (e.g., NVDA, BTC, ETH)"
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white text-sm"
           />
           <button

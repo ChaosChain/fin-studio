@@ -35,7 +35,8 @@ export enum AgentType {
   MACRO_RESEARCH = 'macro_research',
   PRICE_ANALYSIS = 'price_analysis',
   INSIGHTS_REPORTER = 'insights_reporter',
-  ORCHESTRATOR = 'orchestrator'
+  ORCHESTRATOR = 'orchestrator',
+  VERIFIER = 'verifier'
 }
 
 export interface A2APayload {
