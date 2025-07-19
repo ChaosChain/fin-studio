@@ -1,8 +1,18 @@
 import { EventEmitter } from 'events';
 import { v4 as uuidv4 } from 'uuid';
-import * as WebSocket from 'ws';
 import express from 'express';
 import cors from 'cors';
+
+// Handle WebSocket imports for Next.js environment
+let WebSocket: any;
+try {
+  if (typeof window === 'undefined') {
+    // Server-side: try to import ws
+    WebSocket = require('ws');
+  }
+} catch (error) {
+  console.warn('WebSocket server not available in this environment');
+}
 import {
   A2AMessage,
   A2AMessageType,
@@ -59,8 +69,7 @@ export class A2AAgent extends EventEmitter {
 
   async start(port: number = 8080): Promise<void> {
     try {
-      // Start WebSocket server
-      this.server = new WebSocket.Server({ port });
+      // For demo purposes, skip WebSocket server and use HTTP only
       this.status = A2AAgentStatus.ACTIVE;
 
       // Set up HTTP server on the same port

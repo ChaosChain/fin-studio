@@ -43,12 +43,21 @@ export function MarketOverview({ marketData, loading, symbols }: MarketOverviewP
             <div className="space-y-1">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Price</span>
-                <span className="text-sm font-medium">${data.price.toFixed(2)}</span>
+                <span className="text-sm font-medium">
+                  ${data.symbol === 'BTC' || data.symbol === 'ETH' 
+                    ? data.price.toLocaleString(undefined, { maximumFractionDigits: 2 })
+                    : data.price.toFixed(2)
+                  }
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Change</span>
                 <span className={`text-sm font-medium ${data.change >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {data.change >= 0 ? '+' : ''}${data.change.toFixed(2)}
+                  {data.change >= 0 ? '+' : ''}${
+                    data.symbol === 'BTC' || data.symbol === 'ETH' 
+                      ? data.change.toLocaleString(undefined, { maximumFractionDigits: 2 })
+                      : data.change.toFixed(2)
+                  }
                 </span>
               </div>
               <div className="flex justify-between">

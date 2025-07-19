@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { AgentIdentity } from '../../types/a2a';
+import { marketDataService } from '../market-data-service';
 
 interface AgentEndpoint {
   id: string;
@@ -114,11 +115,11 @@ export class A2AHttpGateway {
       
       // Fallback to simulation if agent is not available
       console.log(`⚠️ Gateway - Falling back to simulation for ${agentId}`);
-      return this.fallbackSimulation(agentId, action, data);
+      return await this.fallbackSimulation(agentId, action, data);
     }
   }
 
-  private fallbackSimulation(agentId: string, action: string, data: any) {
+  private async fallbackSimulation(agentId: string, action: string, data: any) {
     // Simulate processing delay
     const timestamp = new Date().toISOString();
     const symbols = data?.symbols || ['AAPL', 'GOOGL', 'MSFT', 'TSLA'];
@@ -158,34 +159,79 @@ export class A2AHttpGateway {
       }
     };
       case 'price-analysis-agent':
-                 const mockData = symbols.map((symbol: string) => ({
-      symbol,
-      name: this.getCompanyName(symbol),
-      price: 150 + Math.random() * 200,
-      change: (Math.random() - 0.5) * 10,
-      changePercent: (Math.random() - 0.5) * 5,
-      volume: Math.floor(Math.random() * 100000000),
-      timestamp: new Date(),
-      source: 'price-analysis-agent'
-    }));
+        try {
+          // Try to fetch real market data
+          const realMarketData = await marketDataService.getBatchMarketData(symbols);
+          
+          return {
+            success: true,
+            agent: 'price-analysis-agent',
+            action,
+            timestamp,
+            data: {
+              symbols,
+              marketData: realMarketData,
+              technicalAnalysis: {
+                trend: realMarketData.some(d => d.changePercent > 0) ? 'bullish' : 'bearish',
+                support: Math.min(...realMarketData.map(d => d.price * 0.95)),
+                resistance: Math.max(...realMarketData.map(d => d.price * 1.05)),
+                rsi: 65,
+                recommendation: 'hold'
+              }
+            }
+          };
+        } catch (error) {
+          console.error('Failed to fetch real market data, using fallback:', error);
+          // Fallback to mock data if real API fails
+          const mockData = symbols.map((symbol: string) => {
+            // Different price ranges for different asset types
+            let basePrice, priceRange, volumeRange;
+            
+            if (symbol === 'BTC') {
+              basePrice = 45000;
+              priceRange = 10000;
+              volumeRange = 50000000;
+            } else if (symbol === 'ETH') {
+              basePrice = 2500;
+              priceRange = 500;
+              volumeRange = 30000000;
+            } else {
+              // Regular stocks
+              basePrice = 150;
+              priceRange = 200;
+              volumeRange = 100000000;
+            }
 
-    return {
-      success: true,
-      agent: 'price-analysis-agent',
-      action,
-      timestamp,
-      data: {
-        symbols,
-        marketData: mockData,
-        technicalAnalysis: {
-          trend: 'bullish',
-          support: 145,
-          resistance: 175,
-          rsi: 65,
-          recommendation: 'hold'
+            return {
+              symbol,
+              name: this.getCompanyName(symbol),
+              price: basePrice + Math.random() * priceRange,
+              change: (Math.random() - 0.5) * (symbol === 'BTC' ? 2000 : symbol === 'ETH' ? 200 : 10),
+              changePercent: (Math.random() - 0.5) * 5,
+              volume: Math.floor(Math.random() * volumeRange),
+              timestamp: new Date(),
+              source: 'price-analysis-agent-fallback'
+            };
+          });
+
+          return {
+            success: true,
+            agent: 'price-analysis-agent',
+            action,
+            timestamp,
+            data: {
+              symbols,
+              marketData: mockData,
+              technicalAnalysis: {
+                trend: 'bullish',
+                support: 145,
+                resistance: 175,
+                rsi: 65,
+                recommendation: 'hold'
+              }
+            }
+          };
         }
-      }
-    };
       case 'insights-agent':
     return {
       success: true,
@@ -238,7 +284,9 @@ export class A2AHttpGateway {
       'TSLA': 'Tesla, Inc.',
       'NVDA': 'NVIDIA Corporation',
       'META': 'Meta Platforms, Inc.',
-      'AMZN': 'Amazon.com, Inc.'
+      'AMZN': 'Amazon.com, Inc.',
+      'BTC': 'Bitcoin',
+      'ETH': 'Ethereum'
     };
     return names[symbol] || symbol;
   }

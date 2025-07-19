@@ -20,6 +20,7 @@ import { costTracker, extractTokenUsage, logApiCallDetails } from '@/lib/cost-tr
 export class MarketResearchAgent {
   private openai: OpenAI;
   private identity: AgentIdentity;
+  private model: string = 'gpt-4.1-2025-04-14'; // Default model
 
   constructor() {
     this.openai = new OpenAI({
@@ -44,6 +45,21 @@ export class MarketResearchAgent {
 
   getIdentity(): AgentIdentity {
     return this.identity;
+  }
+
+  /**
+   * Set the AI model for this agent instance
+   */
+  setModel(model: string): void {
+    this.model = model;
+    console.log(`MarketResearchAgent model set to: ${model}`);
+  }
+
+  /**
+   * Get the current AI model
+   */
+  getModel(): string {
+    return this.model;
   }
 
   getHandlers(): Map<string, A2AHandlerFunction> {
@@ -108,7 +124,7 @@ export class MarketResearchAgent {
 
       const startTime = Date.now();
       console.log('🚀 Market Research Agent - Making OpenAI API call:', {
-        "model": "gpt-4.1",
+        "model": this.model,
         action: 'analyze_news',
         maxTokens: 4096,
         temperature: 0.3,
@@ -116,7 +132,7 @@ export class MarketResearchAgent {
       });
       
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -243,7 +259,7 @@ export class MarketResearchAgent {
 
       const startTime = Date.now();
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -357,7 +373,7 @@ Provide specific numbers, percentages, and actionable insights. Use exact metric
       const startTime = Date.now();
       
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -396,7 +412,7 @@ Provide specific numbers, percentages, and actionable insights. Use exact metric
       );
       console.log(`💰 Market Research Agent - analyze_market_sentiment: ${costTracker.formatCost(requestCost.totalCost)} (${costTracker.formatTokens(requestCost.totalTokens)} tokens)`);
 
-      const analysis = this.parseEnhancedNewsAnalysis(response.choices[0].message.content || '');
+      const analysis = this.parseEnhancedSentimentAnalysis(response.choices[0].message.content || '');
       
       // Embed cost information in response
       const responseWithCost = {
@@ -487,7 +503,7 @@ Provide specific numbers, percentages, and actionable insights. Use exact metric
       Provide specific metrics, percentages, and investment recommendations.`;
 
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -547,7 +563,7 @@ Provide specific numbers, percentages, and actionable insights. Use exact metric
       // Use OpenAI search to get trending topics
       const searchQuery = `Search for trending financial topics and market news today. Identify the most important market-moving stories.`;
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -593,7 +609,7 @@ Provide specific numbers, percentages, and actionable insights. Use exact metric
       // Use OpenAI search to analyze event impact
       const searchQuery = `Analyze the market impact of: ${event}. Include effects on affected securities and overall market implications.`;
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -823,7 +839,22 @@ Provide specific numbers, percentages, and actionable insights. Use exact metric
   }
 
   private parseEnhancedSentimentAnalysis(content: string): any {
+    // Extract the actual sentiment (bullish/bearish/neutral)
+    const extractedSentiment = this.extractSentiment(content);
+    
+    // Convert enum to financial terminology
+    let sentimentString = 'Neutral';
+    if (extractedSentiment === Sentiment.POSITIVE) {
+      sentimentString = 'Bullish';
+    } else if (extractedSentiment === Sentiment.NEGATIVE) {
+      sentimentString = 'Bearish';
+    } else if (extractedSentiment === Sentiment.NEUTRAL) {
+      sentimentString = 'Neutral';
+    }
+    
     return {
+      sentiment: sentimentString, // Add this for the main sentiment field
+      confidence: this.extractNumericValue(content, 'sentiment strength', 7.5),
       sentimentOverview: {
         overallScore: this.extractNumericValue(content, 'sentiment score', 5.0),
         primaryDrivers: this.extractBulletPoints(content, 'sentiment drivers'),

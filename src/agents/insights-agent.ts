@@ -17,6 +17,7 @@ import { costTracker, extractTokenUsage, logApiCallDetails } from '@/lib/cost-tr
 export class InsightsAgent {
   private openai: OpenAI;
   private identity: AgentIdentity;
+  private model: string = 'gpt-4.1-2025-04-14'; // Default model
 
   constructor() {
     this.openai = new OpenAI({
@@ -45,11 +46,20 @@ export class InsightsAgent {
     return this.identity;
   }
 
+  setModel(model: string): void {
+    this.model = model;
+  }
+
+  getModel(): string {
+    return this.model;
+  }
+
   getHandlers(): Map<string, A2AHandlerFunction> {
     const handlers = new Map<string, A2AHandlerFunction>();
 
     handlers.set('generate_daily_insights', this.generateDailyInsights.bind(this));
     handlers.set('generate_daily_insight', this.generateDailyInsights.bind(this)); // Alias for compatibility
+    handlers.set('generate_insights', this.generateInsights.bind(this)); // Main insights handler
     handlers.set('create_market_summary', this.createMarketSummary.bind(this));
     handlers.set('synthesize_analysis', this.synthesizeAnalysis.bind(this));
     handlers.set('generate_report', this.generateReport.bind(this));
@@ -68,7 +78,7 @@ export class InsightsAgent {
       const searchQuery = `Generate comprehensive daily market insights for ${focus || 'global markets'}. Include key market movements, economic developments, sector performance, and investment implications for ${timeframe || 'today'}.`;
       const startTime = Date.now();
       console.log('🚀 Insights Agent - Making OpenAI API call:', {
-        "model": "gpt-4.1",
+        "model": this.model,
         action: 'generate_daily_insights',
         maxTokens: 4096,
         temperature: 0.7,
@@ -76,7 +86,7 @@ export class InsightsAgent {
       });
 
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -194,7 +204,7 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
       const startTime = Date.now();
 
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -275,7 +285,7 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
       // Use OpenAI to create market summary
       const searchQuery = `Create a comprehensive market summary for ${markets?.join(', ') || 'major global markets'} covering ${timeframe || 'today'}. Include index performance, sector rotation, volume analysis, and key market drivers.`;
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -324,7 +334,7 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
       // Use OpenAI to synthesize analysis from multiple sources
       const synthesisQuery = `Synthesize the following analysis data into coherent investment insights: ${JSON.stringify(analysisData)}. Focus on ${focusAreas?.join(', ') || 'key investment themes and risk factors'}.`;
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -373,7 +383,7 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
       // Use OpenAI to generate formatted report
       const reportQuery = `Generate a ${reportType || 'comprehensive market'} report for ${audience || 'institutional investors'}. Include the following data: ${JSON.stringify(data)}. Format as a professional investment report with executive summary, key findings, and recommendations.`;
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -422,7 +432,7 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
       // Use OpenAI to create intelligent alert
       const alertQuery = `Create an intelligent ${alertType || 'market'} alert for ${symbols?.join(', ') || 'major market instruments'}. Monitor for ${JSON.stringify(thresholds)} and provide context and recommendations when triggered.`;
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -471,7 +481,7 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
       // Use OpenAI to analyze portfolio insights
       const portfolioQuery = `Analyze portfolio performance and provide insights: ${JSON.stringify(portfolioData)}. Compare against ${benchmarks?.join(', ') || 'major market indices'} and provide optimization recommendations.`;
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -520,7 +530,7 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
       // Use OpenAI to aggregate and analyze data
       const aggregationQuery = `Aggregate and analyze data from multiple sources: ${JSON.stringify(dataSources)}. Perform ${aggregationType || 'comprehensive'} aggregation and identify key patterns, trends, and insights.`;
       const response = await this.openai.chat.completions.create({
-        "model": "gpt-4.1",
+        "model": this.model,
         messages: [
           {
             role: "system",
@@ -726,6 +736,176 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
     }
 
     return points.length > 0 ? points : ['Analysis provided by AI'];
+  }
+
+  private async generateInsights(message: A2AMessage): Promise<A2AMessage> {
+    try {
+      const { symbols, analysisTypes } = message.payload.data || {};
+      
+      // Generate comprehensive insights by synthesizing all analysis types
+      const searchQuery = `Generate comprehensive market insights for ${symbols?.join(', ') || 'market analysis'}. 
+      Synthesize findings from ${analysisTypes?.join(', ') || 'sentiment, technical, and macro'} analysis. 
+      Provide key insights, investment implications, risk assessment, and actionable recommendations.`;
+      
+      const startTime = Date.now();
+      console.log('🚀 Insights Agent - Making OpenAI API call:', {
+        "model": this.model,
+        "action": 'generate_insights',
+        "maxTokens": 4096,
+        "temperature": 0.3,
+        "promptLength": searchQuery.length
+      });
+
+      const response = await this.openai.chat.completions.create({
+        "model": this.model,
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert financial analyst specializing in generating actionable market insights. 
+            Your role is to synthesize complex financial data and provide clear, actionable recommendations.
+            Focus on practical implications for investors and traders.`
+          },
+          {
+            role: 'user',
+            content: searchQuery
+          }
+        ],
+        max_tokens: 4096,
+        temperature: 0.3
+      });
+
+      const duration = Date.now() - startTime;
+      
+      // Log detailed API call information
+      logApiCallDetails(
+        this.identity.name,
+        'generate_insights',
+        this.model,
+        searchQuery,
+        response,
+        duration
+      );
+
+      const usage = extractTokenUsage(response);
+      const requestCost = costTracker.trackRequest(
+        'insights-agent',
+        this.identity.name,
+        this.generateId(),
+        'generate_insights',
+        this.model,
+        usage,
+        duration
+      );
+
+      const insights = response.choices[0]?.message?.content || '';
+
+      // Parse the insights into structured format
+      const structuredInsights = {
+        summary: insights.substring(0, 500),
+        keyInsights: this.extractKeyInsights(insights),
+        recommendations: this.extractRecommendations(insights),
+        riskFactors: this.extractRiskFactors(insights),
+        marketOutlook: this.extractMarketOutlook(insights),
+        confidence: this.calculateConfidenceScore(insights)
+      };
+
+      return {
+        id: this.generateId(),
+        type: 'response' as any,
+        timestamp: new Date(),
+        source: this.identity,
+        target: message.source,
+        payload: {
+          action: 'insights_generated',
+          data: {
+            insights: structuredInsights,
+            symbols: symbols || [],
+            analysisTypes: analysisTypes || [],
+            costInfo: requestCost,
+            generatedAt: new Date().toISOString()
+          },
+          context: message.payload.context
+        },
+        metadata: {
+          responseToMessageId: message.id
+        }
+      };
+    } catch (error) {
+      console.error('Error generating insights:', error);
+      return this.createErrorResponse(message, error as Error);
+    }
+  }
+
+  private extractKeyInsights(text: string): string[] {
+    const insights: string[] = [];
+    const lines = text.split('\n');
+    
+    for (const line of lines) {
+      if (line.includes('insight') || line.includes('key') || line.includes('important') || line.includes('•')) {
+        const cleaned = line.replace(/[•\-*]/g, '').trim();
+        if (cleaned.length > 10) {
+          insights.push(cleaned);
+        }
+      }
+    }
+    
+    return insights.slice(0, 5); // Top 5 insights
+  }
+
+  private extractRecommendations(text: string): string[] {
+    const recommendations: string[] = [];
+    const lines = text.split('\n');
+    
+    for (const line of lines) {
+      if (line.includes('recommend') || line.includes('suggest') || line.includes('should') || line.includes('consider')) {
+        const cleaned = line.replace(/[•\-*]/g, '').trim();
+        if (cleaned.length > 10) {
+          recommendations.push(cleaned);
+        }
+      }
+    }
+    
+    return recommendations.slice(0, 3); // Top 3 recommendations
+  }
+
+  private extractRiskFactors(text: string): string[] {
+    const risks: string[] = [];
+    const lines = text.split('\n');
+    
+    for (const line of lines) {
+      if (line.includes('risk') || line.includes('concern') || line.includes('caution') || line.includes('warning')) {
+        const cleaned = line.replace(/[•\-*]/g, '').trim();
+        if (cleaned.length > 10) {
+          risks.push(cleaned);
+        }
+      }
+    }
+    
+    return risks.slice(0, 3); // Top 3 risks
+  }
+
+  private extractMarketOutlook(text: string): string {
+    const lines = text.split('\n');
+    
+    for (const line of lines) {
+      if (line.includes('outlook') || line.includes('expect') || line.includes('forecast') || line.includes('future')) {
+        return line.replace(/[•\-*]/g, '').trim();
+      }
+    }
+    
+    return 'Market outlook: Mixed signals with cautious optimism';
+  }
+
+  private calculateConfidenceScore(text: string): number {
+    let score = 0.5; // Base confidence
+    
+    // Increase confidence based on content quality indicators
+    if (text.length > 1000) score += 0.1;
+    if (text.includes('data') || text.includes('analysis')) score += 0.1;
+    if (text.includes('recommend') || text.includes('suggest')) score += 0.1;
+    if (text.includes('risk') || text.includes('caution')) score += 0.1;
+    
+    return Math.min(1.0, score);
   }
 
   private createErrorResponse(originalMessage: A2AMessage, error: Error): A2AMessage {

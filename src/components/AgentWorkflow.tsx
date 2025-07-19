@@ -55,13 +55,14 @@ export function AgentWorkflow() {
       return false;
     }
 
-    // Basic validation: symbols should be 1-5 characters, all letters
+    // Basic validation: symbols should be 1-5 characters, all letters (including crypto)
+    const validSymbols = ['BTC', 'ETH']; // Known crypto symbols
     const invalidSymbols = symbols.filter(symbol =>
-      !/^[A-Z]{1,5}$/.test(symbol)
+      !/^[A-Z]{1,5}$/.test(symbol) && !validSymbols.includes(symbol)
     );
 
     if (invalidSymbols.length > 0) {
-      setInputError(`Invalid symbols: ${invalidSymbols.join(', ')}. Use 1-5 letter symbols only.`);
+      setInputError(`Invalid symbols: ${invalidSymbols.join(', ')}. Use 1-5 letter symbols or BTC/ETH.`);
       return false;
     }
 
@@ -284,7 +285,7 @@ export function AgentWorkflow() {
     resource: '/report/download',
     description: 'Download AI Agent Report',
     mimeType: 'application/pdf',
-    payTo: AGENT_WALLET_ADDRESS, // Use env variable here
+    payTo: AGENT_WALLET_ADDRESS as `0x${string}`, // Use env variable here
     maxTimeoutSeconds: 300,
     asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // USDC on Base Sepolia
     extra: { name: 'USD Coin', version: '2' }
@@ -325,12 +326,12 @@ export function AgentWorkflow() {
             type="text"
             value={stockInput}
             onChange={(e) => setStockInput(e.target.value)}
-            placeholder="e.g., AAPL, GOOGL, MSFT or TSLA NVDA"
+            placeholder="e.g., AAPL, GOOGL, MSFT, BTC, ETH or TSLA NVDA"
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             disabled={isRunning}
           />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Separate multiple symbols with commas or spaces (max 10 symbols)
+            Separate multiple symbols with commas or spaces (max 10 symbols). Supports stocks and crypto (BTC, ETH)
           </p>
           {inputError && (
             <p className="text-sm text-red-500 mt-1">{inputError}</p>
@@ -368,6 +369,13 @@ export function AgentWorkflow() {
               disabled={isRunning}
             >
               ETFs (SPY, QQQ, IWM)
+            </button>
+            <button
+              onClick={() => handleQuickSelect('BTC, ETH')}
+              className="px-3 py-1 text-sm bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded-full hover:bg-yellow-200 dark:hover:bg-yellow-800"
+              disabled={isRunning}
+            >
+              Crypto (BTC, ETH)
             </button>
           </div>
         </div>
