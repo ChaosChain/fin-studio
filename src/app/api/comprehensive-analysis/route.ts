@@ -5,7 +5,7 @@ import { agentReputationNetwork } from '@/lib/arn';
 
 export async function POST(request: NextRequest) {
   try {
-    const { symbols, analysisType } = await request.json();
+    const { symbols, analysisType, useARN = true, arnTaskId } = await request.json();
 
     if (!symbols || !Array.isArray(symbols) || symbols.length === 0) {
       return NextResponse.json(
@@ -15,9 +15,18 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`API: Starting comprehensive analysis for ${symbols.join(', ')}`);
+    console.log('🌐 Using Agent Relay Network for analysis coordination (core feature)');
+    
+    if (arnTaskId) {
+      console.log(`📋 ARN Task ID: ${arnTaskId}`);
+    }
 
-    // Execute comprehensive analysis with multi-agent, DKG, verification, and consensus
-    const result = await agentManager.requestComprehensiveAnalysis(symbols, analysisType);
+    // Execute comprehensive analysis with ARN coordination (now default)
+    const result = await agentManager.requestComprehensiveAnalysis(
+      symbols, 
+      analysisType, 
+      { useARN: true, arnTaskId } // Always use ARN
+    );
 
     // Get additional metrics
     const dkgStats = dkgManager.getStats();

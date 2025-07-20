@@ -240,18 +240,27 @@ export class VerifierAgent {
 
     // Technical analysis checks
     if (node.componentType === 'technical') {
-      if (node.resultData.technicalAnalysis || node.resultData.priceAnalysis) {
-        // Real technical analysis data
-        const hasValidTechnicalData = node.resultData.technicalAnalysis || 
-                                     node.resultData.priceAnalysis ||
-                                     node.resultData.technicalOverview;
-        if (!hasValidTechnicalData) {
-          issues.push('Missing technical analysis structure');
-          passed = false;
-        }
-      } else if (!node.resultData.trend && !node.resultData.priceTarget) {
+      const hasValidTechnicalData = node.resultData.technicalAnalysis || 
+                                   node.resultData.priceAnalysis ||
+                                   node.resultData.technicalOverview ||
+                                   node.resultData.momentumAnalysis ||
+                                   node.resultData.trendAnalysis ||
+                                   node.resultData.tradingSignals ||
+                                   node.resultData.volatilityIndicators ||
+                                   (node.resultData.trend && node.resultData.priceTarget);
+      
+      if (!hasValidTechnicalData) {
         issues.push('No technical analysis data found');
         passed = false;
+      } else {
+        // Additional validation for comprehensive technical data
+        if (node.resultData.technicalOverview || node.resultData.momentumAnalysis) {
+          // This is comprehensive technical analysis - all good
+        } else if (!node.resultData.trend && !node.resultData.priceTarget) {
+          // Fallback check for basic technical data
+          issues.push('Incomplete technical analysis structure');
+          passed = false;
+        }
       }
     }
 
