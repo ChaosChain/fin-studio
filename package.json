@@ -43,6 +43,7 @@
     "jspdf": "^3.0.1",
     "lucide-react": "^0.302.0",
     "next": "14.0.4",
+    "nostr-tools": "^2.15.1",
     "openai": "^4.24.1",
     "postcss": "^8.4.32",
     "react": "^18.2.0",
