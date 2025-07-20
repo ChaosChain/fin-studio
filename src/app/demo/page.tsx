@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { PaymentDialog } from '@/components/PaymentDialog';
 import { X402PaymentRequirements } from '@/types/payment';
-import { Coins, TrendingUp, BarChart3, Globe, DollarSign, CheckCircle } from 'lucide-react';
+import { Coins, TrendingUp, BarChart3, Globe, DollarSign, CheckCircle, Network } from 'lucide-react';
+import Link from 'next/link';
 
 export default function PaymentDemoPage() {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
@@ -90,7 +91,7 @@ export default function PaymentDemoPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
             Payment Integration Demo
           </h1>
@@ -98,6 +99,32 @@ export default function PaymentDemoPage() {
             Experience the power of x402 micropayments with Base's commerce-payments escrow system. 
             Pay for AI agent services with USDC on Base Sepolia.
           </p>
+        </div>
+
+        {/* Demo Navigation */}
+        <div className="flex justify-center mb-12">
+          <Card className="p-4">
+            <div className="flex flex-wrap gap-4 justify-center">
+              <Button variant="outline" asChild>
+                <Link href="/demo" className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Payment Demo
+                </Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/demo/agent-relay-network" className="flex items-center gap-2">
+                  <Network className="h-4 w-4" />
+                  Agent Relay Network
+                </Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/dashboard" className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Dashboard
+                </Link>
+              </Button>
+            </div>
+          </Card>
         </div>
 
         {/* Protocol Info */}

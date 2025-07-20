@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
+    "test": "npx ts-node --project tsconfig.test.json -r tsconfig-paths/register scripts/run-tests.ts",
+    "test:arn": "npx ts-node --project tsconfig.test.json -r tsconfig-paths/register tests/agent-relay-network.test.ts",
     "agents:start": "node dist/agents/manager.js",
     "agents:build": "tsc --project tsconfig.agents.json && tsc-alias -p tsconfig.agents.json",
     "gateway:start": "node dist/gateway-server.js",
@@ -43,6 +45,7 @@
     "jspdf": "^3.0.1",
     "lucide-react": "^0.302.0",
     "next": "14.0.4",
+    "nostr-tools": "^2.15.1",
     "openai": "^4.24.1",
     "postcss": "^8.4.32",
     "react": "^18.2.0",
@@ -66,6 +69,8 @@
     "@types/ws": "^8.5.10",
     "eslint": "^8.56.0",
     "eslint-config-next": "14.0.4",
-    "tsc-alias": "^1.8.16"
+    "ts-node": "^10.9.2",
+    "tsc-alias": "^1.8.16",
+    "tsconfig-paths": "^4.2.0"
   }
 }

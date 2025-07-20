@@ -9,6 +9,7 @@ import { VerifierAgent, VerificationResult } from './verifier-agent';
 import { createPaymentMiddleware, DEFAULT_PAYMENT_CONFIG } from '@/lib/payment/payment-middleware';
 import { dkgManager } from '@/lib/dkg';
 import { agentReputationNetwork, ReputationUpdate } from '@/lib/arn';
+import { agentRelayNetwork, AgentProfile } from '@/lib/agent-relay-network';
 import {
   AgentIdentity,
   AgentType,
@@ -96,6 +97,9 @@ export class AgentManager extends EventEmitter {
 
       // Set up message routing
       this.setupMessageRouting();
+
+      // Initialize Agent Relay Network
+      await this.initializeAgentRelayNetwork();
 
       this.isRunning = true;
       console.log('Agent Manager initialized successfully');
@@ -195,6 +199,143 @@ export class AgentManager extends EventEmitter {
         this.routeMessage(message);
       });
     }
+  }
+
+  private async initializeAgentRelayNetwork(): Promise<void> {
+    console.log('🌐 Initializing Agent Relay Network...');
+    
+    try {
+      // Start the relay network
+      await agentRelayNetwork.start();
+      
+      // Register our agents in the relay network
+      await this.registerAgentsInRelayNetwork();
+      
+      // Set up relay network event handlers
+      this.setupRelayNetworkHandlers();
+      
+      console.log('✅ Agent Relay Network initialized successfully');
+      
+    } catch (error) {
+      console.error('❌ Failed to initialize Agent Relay Network:', error);
+      throw error;
+    }
+  }
+
+  private async registerAgentsInRelayNetwork(): Promise<void> {
+    console.log('📢 Registering agents in relay network...');
+    
+    // Register base agents
+    for (const [agentId, agent] of this.agents) {
+      const identity = agent.getIdentity();
+      const reputation = agentReputationNetwork.getReputation(agentId);
+      
+      const agentProfile: Omit<AgentProfile, 'publicKey' | 'lastSeen'> = {
+        agentId: identity.id,
+        name: identity.name,
+        capabilities: identity.capabilities || [],
+        specialties: reputation?.specialties || [],
+        reputation: reputation?.reputationScore || 0.5,
+        cost: this.getAgentCost(agentId),
+        endpoint: `http://localhost:${this.ports.get(agentId) || 8080}`,
+        relays: []
+      };
+      
+      await agentRelayNetwork.announceAgent(agentProfile);
+      console.log(`📡 Registered ${identity.name} in relay network`);
+    }
+
+    // Also register verifier agents in ARN
+    for (const [verifierId, verifierAgent] of this.verifierAgents) {
+      const identity = verifierAgent.getIdentity();
+      const reputation = agentReputationNetwork.getReputation(verifierId);
+      
+      const verifierProfile: Omit<AgentProfile, 'publicKey' | 'lastSeen'> = {
+        agentId: identity.id,
+        name: identity.name,
+        capabilities: identity.capabilities || [],
+        specialties: reputation?.specialties || ['verification', 'consensus', 'validation'],
+        reputation: reputation?.reputationScore || 0.8, // Verifiers start with higher reputation
+        cost: '$0.001', // Very low cost for verification
+        endpoint: `http://localhost:${this.ports.get(verifierId) || 8080}`,
+        relays: []
+      };
+      
+      await agentRelayNetwork.announceAgent(verifierProfile);
+      console.log(`📡 Registered ${identity.name} in relay network`);
+    }
+
+    // Register all possible agent variants (with different models) that can be dynamically created
+    const baseAgentTypes = ['market-research-agent', 'macro-research-agent', 'price-analysis-agent', 'insights-agent'];
+    const models = ['gpt4', 'gpt4o'];
+    
+    for (const baseType of baseAgentTypes) {
+      for (const model of models) {
+        const variantId = `${baseType}-${model}`;
+        if (!this.agents.has(variantId)) {
+          // Create a profile for the variant even if not yet instantiated
+          const baseAgent = this.agents.get(baseType);
+          if (baseAgent) {
+            const baseIdentity = baseAgent.getIdentity();
+            const reputation = agentReputationNetwork.getReputation(variantId) || 
+                             agentReputationNetwork.getReputation(baseType);
+            
+            const variantProfile: Omit<AgentProfile, 'publicKey' | 'lastSeen'> = {
+              agentId: variantId,
+              name: `${baseIdentity.name} (${model.toUpperCase()})`,
+              capabilities: baseIdentity.capabilities || [],
+              specialties: reputation?.specialties || [],
+              reputation: reputation?.reputationScore || 0.5,
+              cost: this.getAgentCost(baseType),
+              endpoint: `http://localhost:${this.ports.get(baseType) || 8080}`,
+              relays: []
+            };
+            
+            await agentRelayNetwork.announceAgent(variantProfile);
+            console.log(`📡 Registered variant ${variantProfile.name} in relay network`);
+          }
+        }
+      }
+    }
+
+    console.log(`✅ Successfully registered ${this.agents.size + this.verifierAgents.size + (baseAgentTypes.length * models.length)} agents in relay network`);
+  }
+
+  private getAgentCost(agentId: string): string {
+    // Return cost based on agent type
+    const costMap: Record<string, string> = {
+      'market-research-agent': '$0.01',
+      'macro-research-agent': '$0.02',
+      'price-analysis-agent': '$0.005',
+      'insights-agent': '$0.03'
+    };
+    return costMap[agentId] || '$0.01';
+  }
+
+  private setupRelayNetworkHandlers(): void {
+    // Handle incoming agent requests through relay network
+    agentRelayNetwork.onRequestReceived((request) => {
+      console.log(`🔄 Relay network request received: ${request.requestId}`);
+      this.emit('relay-request', request);
+    });
+
+    // Handle agent responses through relay network
+    agentRelayNetwork.onResponseReceived((response) => {
+      console.log(`🔄 Relay network response received: ${response.requestId}`);
+      this.emit('relay-response', response);
+    });
+
+    // Handle task coordination through relay network
+    agentRelayNetwork.onTaskCoordination((coordination) => {
+      console.log(`🎯 Task coordination received: ${coordination.taskId}`);
+      this.emit('task-coordination', coordination);
+    });
+
+    // Handle agent discovery
+    agentRelayNetwork.onAgentDiscovered((agent) => {
+      console.log(`🤖 New agent discovered: ${agent.name}`);
+      this.emit('agent-discovered', agent);
+    });
   }
 
   private async routeMessage(message: A2AMessage): Promise<void> {
@@ -493,13 +634,23 @@ export class AgentManager extends EventEmitter {
   /**
    * Comprehensive analysis with multi-agent assignment, DKG, and verification
    */
-  async requestComprehensiveAnalysis(symbols: string[], analysisType: string = 'comprehensive'): Promise<any> {
+  async requestComprehensiveAnalysis(
+    symbols: string[], 
+    analysisType: string = 'comprehensive',
+    options: { useARN?: boolean; arnTaskId?: string } = {}
+  ): Promise<any> {
     if (!this.isRunning) {
       throw new Error('Agent Manager not initialized');
     }
 
-    const taskId = this.generateTaskId();
-    console.log(`Starting comprehensive analysis task ${taskId} for ${symbols.join(', ')}`);
+    const { useARN = false, arnTaskId } = options;
+    const taskId = arnTaskId || this.generateTaskId();
+    
+    if (useARN) {
+      console.log(`🌐 Starting ARN-coordinated comprehensive analysis task ${taskId} for ${symbols.join(', ')}`);
+    } else {
+      console.log(`Starting comprehensive analysis task ${taskId} for ${symbols.join(', ')}`);
+    }
 
     // Set current task in DKG manager (clears previous task nodes)
     dkgManager.setCurrentTask(taskId);
@@ -517,26 +668,82 @@ export class AgentManager extends EventEmitter {
     this.activeTasks.set(taskId, taskExecution);
 
     try {
-      // Step 1: Task Decomposition - assign multiple agents per component
-      await this.decomposeAndAssignTask(taskExecution);
+      if (useARN) {
+        // ARN-Enhanced Workflow
+        console.log('🔍 Step 1: ARN Agent Discovery and Selection');
+        await this.discoverAndSelectAgentsViaARN(taskExecution);
 
-      // Step 2: Execute multi-agent analysis
-      await this.executeMultiAgentAnalysis(taskExecution);
+        console.log('🎯 Step 2: ARN Task Coordination');
+        await this.coordinateTaskViaARN(taskExecution);
 
-      // Step 3: Verification by verifier network
+        console.log('⚡ Step 3: ARN-Coordinated Multi-Agent Analysis');
+        await this.executeARNCoordinatedAnalysis(taskExecution);
+      } else {
+        // Standard Workflow
+        console.log('📋 Step 1: Task Decomposition - assign multiple agents per component');
+        await this.decomposeAndAssignTask(taskExecution);
+
+        console.log('🤖 Step 2: Execute multi-agent analysis');
+        await this.executeMultiAgentAnalysis(taskExecution);
+      }
+
+      console.log('✅ Step 3: Verification by verifier network');
       await this.performVerification(taskExecution);
 
-      // Step 4: Consensus and payment release
+      console.log('💰 Step 4: Consensus and payment release');
       await this.processConsensusAndPayment(taskExecution);
 
+      // Validate that all required sections have been completed
+      const requiredSections = ['sentiment', 'technical', 'macro', 'insights'];
+      const results = this.aggregateTaskResults(taskExecution);
+      const incompleteSections = requiredSections.filter(section => 
+        !results[section] || results[section].nodes === 0
+      );
+
+      if (incompleteSections.length > 0) {
+        console.warn(`⚠️ Task ${taskId} has incomplete sections: ${incompleteSections.join(', ')}`);
+        console.warn('🔄 Attempting to retry incomplete sections...');
+        
+        // Retry incomplete sections
+        for (const section of incompleteSections) {
+          if (taskExecution.components.has(section)) {
+            const componentExecution = taskExecution.components.get(section)!;
+            console.log(`🔄 Retrying ${section} analysis with ${componentExecution.assignedAgents.length} agents`);
+            
+            // Re-execute the failed section
+            for (const agentId of componentExecution.assignedAgents) {
+              try {
+                if (useARN) {
+                  await this.executeARNAgentTask(taskId, section, agentId, symbols);
+                } else {
+                  await this.executeAgentTask(taskId, section, agentId, symbols);
+                }
+              } catch (error) {
+                console.error(`❌ Retry failed for ${agentId} in ${section}:`, error);
+              }
+            }
+          }
+        }
+        
+        // Re-verify and process consensus for retried sections
+        await this.performVerification(taskExecution);
+        await this.processConsensusAndPayment(taskExecution);
+      }
+
       taskExecution.status = 'completed';
-      console.log(`Comprehensive analysis task ${taskId} completed successfully`);
+      
+      if (useARN) {
+        console.log(`🎉 ARN-coordinated comprehensive analysis task ${taskId} completed successfully`);
+      } else {
+        console.log(`Comprehensive analysis task ${taskId} completed successfully`);
+      }
 
       return {
         taskId,
         status: 'completed',
         results: this.aggregateTaskResults(taskExecution),
-        reputation: this.getTaskReputationSummary(taskExecution)
+        reputation: this.getTaskReputationSummary(taskExecution),
+        arnCoordinated: useARN
       };
 
     } catch (error) {
@@ -1033,8 +1240,13 @@ export class AgentManager extends EventEmitter {
     // Parse base agent type from agentId by removing the model suffix
     // Examples: "market-research-agent-gpt4" → "market-research-agent"
     //           "insights-agent-gpt4o" → "insights-agent"
-    const parts = agentId.split('-');
-    const baseAgentType = parts.slice(0, -1).join('-');
+    let baseAgentType = agentId;
+    
+    // Remove model suffixes to get base agent type
+    if (agentId.endsWith('-gpt4') || agentId.endsWith('-gpt4o')) {
+      const parts = agentId.split('-');
+      baseAgentType = parts.slice(0, -1).join('-');
+    }
     
     switch (baseAgentType) {
       case 'market-research-agent':
@@ -1055,7 +1267,12 @@ export class AgentManager extends EventEmitter {
         agent.setModel(model);
         break;
       default:
-        throw new Error(`Unknown agent type for ${agentId}`);
+        // If we can't find the specialized agent, try to use the base agent
+        console.warn(`Unknown specialized agent ${agentId}, trying base agent ${baseAgentType}`);
+        if (this.agents.has(baseAgentType)) {
+          return this.agents.get(baseAgentType);
+        }
+        throw new Error(`Unknown agent type for ${agentId} (base: ${baseAgentType})`);
     }
 
     // Store the specialized agent
@@ -1157,6 +1374,210 @@ export class AgentManager extends EventEmitter {
       });
       server.listen(port);
     });
+  }
+
+  /**
+   * ARN-Enhanced Methods for Comprehensive Analysis
+   */
+  private async discoverAndSelectAgentsViaARN(taskExecution: TaskExecution): Promise<void> {
+    const { taskId, symbols } = taskExecution;
+    
+    console.log(`🔍 ARN: Discovering agents for task ${taskId}`);
+    
+    // Discover agents by capabilities through ARN - using actual capability names from agent registration
+    const requiredCapabilities = [
+      'news_analysis', 'market_sentiment', // For sentiment analysis
+      'technical_analysis', 'real_time_price_data', // For technical analysis
+      'economic_indicators', 'macro_trend_analysis', // For macro analysis
+      'daily_insights', 'report_generation' // For insights
+    ];
+    const discoveredAgents = await this.discoverAgentsByCapability(requiredCapabilities);
+    
+    console.log(`🤖 ARN: Discovered ${discoveredAgents.length} capable agents`);
+    
+    // Select best agents for each component based on actual capabilities
+    const componentAssignments = {
+      'sentiment': this.selectBestAgentsForComponent(discoveredAgents, 'news_analysis', 2),
+      'technical': this.selectBestAgentsForComponent(discoveredAgents, 'technical_analysis', 2),
+      'macro': this.selectBestAgentsForComponent(discoveredAgents, 'economic_indicators', 2),
+      'insights': this.selectBestAgentsForComponent(discoveredAgents, 'daily_insights', 2)
+    };
+
+    // Ensure all components have assigned agents - fallback to any available agent if needed
+    const allAgents = discoveredAgents;
+    for (const [componentType, selectedAgents] of Object.entries(componentAssignments)) {
+      if (selectedAgents.length === 0 && allAgents.length > 0) {
+        console.warn(`🔄 ARN: No specific agents found for ${componentType}, using fallback agents`);
+        // Use any available agents as fallback
+        (componentAssignments as any)[componentType] = allAgents.slice(0, 2).map(agent => ({
+          agentId: `${agent.agentId.replace(/-gpt4[o]?$/, '')}-gpt4`,
+          model: 'gpt-4.1-2025-04-14'
+        }));
+      }
+    }
+
+    // Create component executions with ARN-selected agents
+    for (const [componentType, selectedAgents] of Object.entries(componentAssignments)) {
+      const componentExecution: ComponentExecution = {
+        componentType,
+        assignedAgents: selectedAgents.map(agent => agent.agentId),
+        completedAgents: [],
+        dkgNodeIds: [],
+        verificationResults: [],
+        consensusReached: false
+      };
+
+      taskExecution.components.set(componentType, componentExecution);
+    }
+
+    console.log(`✅ ARN: Selected agents for ${taskExecution.components.size} components`);
+    
+    // Log component assignments for debugging
+    for (const [componentType, componentExecution] of taskExecution.components) {
+      console.log(`🎯 ${componentType}: ${componentExecution.assignedAgents.length} agents assigned`);
+    }
+  }
+
+  private selectBestAgentsForComponent(agents: any[], capability: string, count: number = 2) {
+    return agents
+      .filter(agent => agent.capabilities.includes(capability))
+      .sort((a, b) => b.reputation - a.reputation) // Sort by reputation descending
+      .slice(0, count)
+      .map(agent => {
+        // Use existing agent variants if available, otherwise use base agent
+        const modelVariant = Math.random() > 0.5 ? 'gpt4' : 'gpt4o';
+        const baseAgentId = agent.agentId.replace(/-gpt4[o]?$/, ''); // Remove existing model suffix
+        return {
+          agentId: `${baseAgentId}-${modelVariant}`,
+          model: modelVariant === 'gpt4o' ? 'gpt-4o-2024-08-06' : 'gpt-4.1-2025-04-14'
+        };
+      });
+  }
+
+  private async coordinateTaskViaARN(taskExecution: TaskExecution): Promise<void> {
+    const { taskId, symbols, analysisType } = taskExecution;
+    
+    console.log(`🎯 ARN: Coordinating task ${taskId} across relay network`);
+    
+    // Get all assigned agents
+    const allAgents: string[] = [];
+    for (const [, componentExecution] of taskExecution.components) {
+      allAgents.push(...componentExecution.assignedAgents);
+    }
+
+    // Coordinate task through ARN
+    await this.coordinateTaskViaRelay(taskId, allAgents, {
+      symbols,
+      analysisType,
+      components: Array.from(taskExecution.components.keys()),
+      deadline: Date.now() + 600000 // 10 minutes
+    });
+
+    console.log(`✅ ARN: Task coordination complete for ${allAgents.length} agents`);
+  }
+
+  private async executeARNCoordinatedAnalysis(taskExecution: TaskExecution): Promise<void> {
+    const { taskId, symbols } = taskExecution;
+    console.log(`⚡ ARN: Executing coordinated analysis for task ${taskId}`);
+    
+    // Execute analysis with ARN coordination awareness
+    const promises: Promise<void>[] = [];
+
+    for (const [componentType, componentExecution] of taskExecution.components) {
+      for (const agentId of componentExecution.assignedAgents) {
+        // Use ARN for agent service requests
+        promises.push(this.executeARNAgentTask(taskId, componentType, agentId, symbols));
+      }
+    }
+
+    await Promise.all(promises);
+    console.log(`✅ ARN: All coordinated agents completed analysis for task ${taskId}`);
+  }
+
+  private async executeARNAgentTask(
+    taskId: string, 
+    componentType: string, 
+    agentId: string, 
+    symbols: string[]
+  ): Promise<void> {
+    try {
+      console.log(`🔄 ARN: Requesting service from ${agentId} for ${componentType} analysis`);
+      
+      // Request service through ARN
+      const requestId = await this.requestAgentServiceViaRelay(
+        componentType,
+        { symbols, taskId },
+        agentId,
+        '$0.05' // Max cost
+      );
+
+      // For demo purposes, fall back to direct execution
+      // In production, this would wait for ARN response
+      await this.executeAgentTask(taskId, componentType, agentId, symbols);
+      
+      console.log(`✅ ARN: Service completed by ${agentId} (request: ${requestId})`);
+      
+    } catch (error) {
+      console.error(`❌ ARN: Agent task failed for ${agentId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get Agent Relay Network status and metrics
+   */
+  getRelayNetworkStatus() {
+    return {
+      ...agentRelayNetwork.getNetworkStatus(),
+      knownAgents: agentRelayNetwork.getKnownAgents(),
+      activeRequests: agentRelayNetwork.getActiveRequests(),
+      relayStatus: agentRelayNetwork.getRelayStatus(),
+      taskCoordinations: agentRelayNetwork.getTaskCoordinations()
+    };
+  }
+
+  /**
+   * Discover agents in the relay network by capability
+   */
+  async discoverAgentsByCapability(capabilities: string[]) {
+    return await agentRelayNetwork.discoverAgents(capabilities);
+  }
+
+  /**
+   * Find the best agent for a specific task type
+   */
+  findBestAgentForTask(taskType: string, maxCost?: string) {
+    return agentRelayNetwork.findBestAgent(taskType, maxCost);
+  }
+
+  /**
+   * Request agent service through relay network
+   */
+  async requestAgentServiceViaRelay(taskType: string, payload: any, targetAgent?: string, maxCost?: string) {
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    return await agentRelayNetwork.requestAgentService({
+      requestId,
+      taskType,
+      payload,
+      targetAgent,
+      maxCost,
+      deadline: Date.now() + 300000 // 5 minutes
+    });
+  }
+
+  /**
+   * Coordinate multi-agent task through relay network
+   */
+  async coordinateTaskViaRelay(taskId: string, agents: string[], taskData: any) {
+    return await agentRelayNetwork.coordinateTask(taskId, agents, taskData);
+  }
+
+  /**
+   * Check if the agent manager is running
+   */
+  getIsRunning(): boolean {
+    return this.isRunning;
   }
 }
 

@@ -8,6 +8,7 @@ import { ConsensusVisualizer } from './ConsensusVisualizer';
 import DKGVisualizer from './DKGVisualizer';
 import VerifierNetworkVisualizer from './VerifierNetworkVisualizer';
 import FinalReport from './FinalReport';
+import ARNIntegrationDemo from './ARNIntegrationDemo';
 
 interface AnalysisResult {
   taskId: string;
@@ -47,10 +48,46 @@ export default function ChaosChainDemo() {
   const [selectedSymbol, setSelectedSymbol] = useState('AAPL');
   const [dkgRefreshTrigger, setDkgRefreshTrigger] = useState(0);
   const [showFinalReport, setShowFinalReport] = useState(false);
+  const [showAgentRelayNetwork, setShowAgentRelayNetwork] = useState(true); // Always show ARN
+  const [arnMetrics, setArnMetrics] = useState<any>(null);
+  const [arnActive, setArnActive] = useState(false);
 
   const runComprehensiveAnalysis = async () => {
     setIsAnalyzing(true);
     try {
+      // Step 1: Show ARN agent discovery phase
+      console.log('🔍 Phase 1: Agent Discovery via Relay Network');
+      setArnActive(true);
+      
+      // Brief delay to show ARN activation
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Step 2: Discover and coordinate agents through ARN
+      console.log('🎯 Phase 2: Task Coordination via ARN');
+      const arnResponse = await fetch('/api/agent-relay-network/status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'coordinate_task',
+          payload: {
+            taskType: 'comprehensive_analysis',
+            symbols: [selectedSymbol],
+            analysisType: 'comprehensive'
+          }
+        }),
+      });
+      
+      const arnData = await arnResponse.json();
+      if (arnData.success) {
+        console.log('✅ ARN Task Coordination Success');
+        // Refresh ARN metrics
+        await getAgentRelayNetworkStatus();
+      }
+      
+      // Step 3: Execute comprehensive analysis with ARN-coordinated agents
+      console.log('⚡ Phase 3: Executing Analysis with ARN-Coordinated Agents');
       const response = await fetch('/api/comprehensive-analysis', {
         method: 'POST',
         headers: {
@@ -58,7 +95,9 @@ export default function ChaosChainDemo() {
         },
         body: JSON.stringify({
           symbols: [selectedSymbol],
-          analysisType: 'comprehensive'
+          analysisType: 'comprehensive',
+          useARN: true, // Always use ARN - it's now core functionality
+          arnTaskId: arnData.data?.taskId
         }),
       });
 
@@ -75,6 +114,8 @@ export default function ChaosChainDemo() {
         setTimeout(() => {
           setShowFinalReport(true);
         }, 2000);
+        
+        console.log('🎉 Comprehensive Analysis Complete with ARN Integration');
       } else {
         console.error('Analysis failed:', data.error);
       }
@@ -82,6 +123,7 @@ export default function ChaosChainDemo() {
       console.error('Request failed:', error);
     } finally {
       setIsAnalyzing(false);
+      setArnActive(false);
     }
   };
 
@@ -98,8 +140,35 @@ export default function ChaosChainDemo() {
     }
   };
 
+  const getAgentRelayNetworkStatus = async () => {
+    try {
+      const response = await fetch('/api/agent-relay-network/status');
+      const data = await response.json();
+      
+      if (data.success) {
+        // Transform the data to match expected structure
+        const transformedData = {
+          ...data.data,
+          networkStatus: {
+            isRunning: data.data.isRunning,
+            connectedRelays: data.data.connectedRelays || 0,
+            totalRelays: data.data.totalRelays || 3,
+            knownAgents: Array.isArray(data.data.knownAgents) ? data.data.knownAgents.length : (data.data.knownAgents || 0),
+            activeRequests: Array.isArray(data.data.activeRequests) ? data.data.activeRequests.length : (data.data.activeRequests || 0),
+            taskCoordinations: Array.isArray(data.data.taskCoordinations) ? data.data.taskCoordinations.length : (data.data.taskCoordinations || 0),
+            uptime: data.data.uptime || 0
+          }
+        };
+        setArnMetrics(transformedData);
+      }
+    } catch (error) {
+      console.error('ARN Status check failed:', error);
+    }
+  };
+
   React.useEffect(() => {
     getSystemStatus();
+    getAgentRelayNetworkStatus();
   }, []);
 
   return (
@@ -111,7 +180,7 @@ export default function ChaosChainDemo() {
             🔗 ChaosChain MVP Demo
           </CardTitle>
           <p className="text-center text-muted-foreground">
-            Showcasing Agent Reputation Relay Networks, Decentralized Knowledge Graph, 
+            Showcasing Agent Reputation Networks, Agent Relay Network, Decentralized Knowledge Graph, 
             Proof of Agency, A2A Protocol, and Micro On-Chain Payments
           </p>
         </CardHeader>
@@ -124,7 +193,7 @@ export default function ChaosChainDemo() {
             <CardTitle>🚀 System Status</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">
                   {systemStatus.metrics?.reputation?.totalAgents || 0}
@@ -149,6 +218,12 @@ export default function ChaosChainDemo() {
                 </div>
                 <div className="text-sm text-muted-foreground">Verifiers</div>
               </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-cyan-600">
+                  {arnMetrics?.networkStatus?.connectedRelays || 0}/{arnMetrics?.networkStatus?.totalRelays || 3}
+                </div>
+                <div className="text-sm text-muted-foreground">Relay Network</div>
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -157,6 +232,11 @@ export default function ChaosChainDemo() {
                   {feature}
                 </Badge>
               ))}
+              {/* ARN-integrated features */}
+              <Badge variant="default" className="bg-cyan-600">ARN-Coordinated Agents</Badge>
+              <Badge variant="secondary">Decentralized Discovery</Badge>
+              <Badge variant="secondary">Multi-Relay Routing</Badge>
+              <Badge variant="secondary">Fault-Tolerant Network</Badge>
             </div>
           </CardContent>
         </Card>
@@ -208,9 +288,40 @@ export default function ChaosChainDemo() {
                 📊 View Final Report
               </Button>
             )}
+            <Button 
+              variant="outline"
+              onClick={() => setShowAgentRelayNetwork(!showAgentRelayNetwork)}
+              className="min-w-[200px]"
+            >
+              {showAgentRelayNetwork ? '🔼 Hide Relay Network' : '🌐 Show Agent Relay Network'}
+            </Button>
           </div>
         </CardContent>
       </Card>
+
+            {/* Agent Relay Network - Core System Component */}
+      {showAgentRelayNetwork && (
+        <Card className={arnActive ? "border-cyan-500 shadow-lg" : ""}>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <span className={`px-2 py-1 rounded text-xs mr-2 ${arnActive ? 'bg-cyan-500 text-white animate-pulse' : 'bg-cyan-100 text-cyan-800'}`}>
+                {arnActive ? 'ACTIVE' : 'ARN'}
+              </span>
+              Agent Relay Network
+              {arnActive && <span className="ml-2 text-cyan-500">●</span>}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {arnActive 
+                ? "🔄 Actively coordinating agents for comprehensive analysis" 
+                : "Decentralized agent discovery, communication, and task coordination network"
+              }
+            </p>
+          </CardHeader>
+          <CardContent>
+            <ARNIntegrationDemo isActive={arnActive} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Analysis Results */}
       {analysisResult && (
@@ -383,30 +494,37 @@ export default function ChaosChainDemo() {
           <CardTitle>🔄 ChaosChain Workflow</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="text-center p-4 border rounded-lg">
               <div className="text-2xl mb-2">1️⃣</div>
-              <h3 className="font-semibold mb-2">Multi-Agent Assignment</h3>
+              <h3 className="font-semibold mb-2">Agent Discovery</h3>
+              <p className="text-sm text-muted-foreground">
+                Agents discover each other through the relay network and announce capabilities
+              </p>
+            </div>
+            <div className="text-center p-4 border rounded-lg">
+              <div className="text-2xl mb-2">2️⃣</div>
+              <h3 className="font-semibold mb-2">Task Assignment</h3>
               <p className="text-sm text-muted-foreground">
                 Task decomposed into components, multiple agents assigned per component
               </p>
             </div>
             <div className="text-center p-4 border rounded-lg">
-              <div className="text-2xl mb-2">2️⃣</div>
+              <div className="text-2xl mb-2">3️⃣</div>
               <h3 className="font-semibold mb-2">DKG & PoA</h3>
               <p className="text-sm text-muted-foreground">
                 Agents create signed nodes in the Decentralized Knowledge Graph
               </p>
             </div>
             <div className="text-center p-4 border rounded-lg">
-              <div className="text-2xl mb-2">3️⃣</div>
+              <div className="text-2xl mb-2">4️⃣</div>
               <h3 className="font-semibold mb-2">Verifier Network</h3>
               <p className="text-sm text-muted-foreground">
-                4 independent verifiers perform multi-criteria consensus validation with detailed scoring
+                4 independent verifiers perform multi-criteria consensus validation
               </p>
             </div>
             <div className="text-center p-4 border rounded-lg">
-              <div className="text-2xl mb-2">4️⃣</div>
+              <div className="text-2xl mb-2">5️⃣</div>
               <h3 className="font-semibold mb-2">Consensus & Payment</h3>
               <p className="text-sm text-muted-foreground">
                 Consensus reached, payments released, reputation updated
