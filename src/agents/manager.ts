@@ -10,6 +10,8 @@ import { createPaymentMiddleware, DEFAULT_PAYMENT_CONFIG } from '@/lib/payment/p
 import { dkgManager } from '@/lib/dkg';
 import { agentReputationNetwork, ReputationUpdate } from '@/lib/arn';
 import { agentRelayNetwork, AgentProfile } from '@/lib/agent-relay-network';
+import { nostrAgentRelayNetwork } from '@/lib/nostr-agent-relay-network';
+import { NostrARNIntegration } from '@/lib/nostr-arn-integration';
 import {
   AgentIdentity,
   AgentType,
@@ -54,6 +56,7 @@ export class AgentManager extends EventEmitter {
   private paymentConfig: PaymentMiddlewareConfig;
   private paymentMiddleware: any;
   private activeTasks: Map<string, TaskExecution>;
+  private nostrARN: NostrARNIntegration;
 
   constructor(paymentConfig?: PaymentMiddlewareConfig) {
     super();
@@ -65,6 +68,9 @@ export class AgentManager extends EventEmitter {
     this.isRunning = false;
     this.ports = new Map();
     this.activeTasks = new Map();
+    
+    // Initialize Nostr ARN integration
+    this.nostrARN = new NostrARNIntegration(nostrAgentRelayNetwork);
     
     // Initialize payment configuration
     this.paymentConfig = paymentConfig || this.getDefaultPaymentConfig();
@@ -205,16 +211,22 @@ export class AgentManager extends EventEmitter {
     console.log('🌐 Initializing Agent Relay Network...');
     
     try {
-      // Start the relay network
+      // Start the legacy relay network (for backward compatibility)
       await agentRelayNetwork.start();
       
-      // Register our agents in the relay network
+      // Start the Nostr-based relay network
+      console.log('🌐 Starting Nostr-based Agent Relay Network...');
+      await this.nostrARN.start();
+      
+      // Register our agents in the legacy relay network
       await this.registerAgentsInRelayNetwork();
       
       // Set up relay network event handlers
       this.setupRelayNetworkHandlers();
+      this.setupNostrARNHandlers();
       
       console.log('✅ Agent Relay Network initialized successfully');
+      console.log('✅ Nostr ARN integration active');
       
     } catch (error) {
       console.error('❌ Failed to initialize Agent Relay Network:', error);
@@ -335,6 +347,32 @@ export class AgentManager extends EventEmitter {
     agentRelayNetwork.onAgentDiscovered((agent) => {
       console.log(`🤖 New agent discovered: ${agent.name}`);
       this.emit('agent-discovered', agent);
+    });
+  }
+
+  private setupNostrARNHandlers(): void {
+    // Handle incoming agent discoveries through Nostr ARN
+    this.nostrARN.onAgentDiscovered((agent) => {
+      console.log(`🌐 Nostr agent discovered: ${agent.name} (${agent.publicKey.slice(0, 8)}...)`);
+      this.emit('nostr-agent-discovered', agent);
+    });
+
+    // Handle incoming service requests through Nostr ARN
+    this.nostrARN.onRequestReceived((request) => {
+      console.log(`🌐 Nostr service request received: ${request.requestId}`);
+      this.emit('nostr-request-received', request);
+    });
+
+    // Handle service responses through Nostr ARN
+    this.nostrARN.onResponseReceived((response) => {
+      console.log(`🌐 Nostr service response received: ${response.requestId}`);
+      this.emit('nostr-response-received', response);
+    });
+
+    // Handle task coordination through Nostr ARN
+    this.nostrARN.onTaskCoordination((coordination) => {
+      console.log(`🌐 Nostr task coordination: ${coordination.taskId}`);
+      this.emit('nostr-task-coordination', coordination);
     });
   }
 

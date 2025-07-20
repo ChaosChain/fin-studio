@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { PaymentDialog } from '@/components/PaymentDialog';
+import NostrRelayNetwork from '@/components/NostrRelayNetwork';
 import { X402PaymentRequirements } from '@/types/payment';
 import { Coins, TrendingUp, BarChart3, Globe, DollarSign, CheckCircle, Network } from 'lucide-react';
 import Link from 'next/link';
@@ -317,6 +318,28 @@ export default function PaymentDemoPage() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Nostr Relay Network Visualization */}
+      <div className="mb-8">
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">🌐 Decentralized Network Status</h2>
+              <p className="text-gray-600">
+                Real-time visualization of your Nostr Agent Relay Network with live connections, 
+                agent discovery, and relay health monitoring.
+              </p>
+            </div>
+            <Link href="/network">
+              <Button variant="outline">
+                <Network className="w-4 h-4 mr-2" />
+                Full Network View
+              </Button>
+            </Link>
+          </div>
+        </div>
+        <NostrRelayNetwork />
       </div>
 
       {/* Payment Dialog */}
