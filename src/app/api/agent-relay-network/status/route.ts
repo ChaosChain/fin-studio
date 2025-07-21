@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { agentManager } from '@/agents/manager';
+import { nostrAgentRelayNetwork } from '@/lib/nostr-agent-relay-network';
 
 function getMockARNData() {
   return {
@@ -231,25 +232,84 @@ export async function GET() {
       }
     }
     
-    // Get relay network status from agent manager
-    const relayNetworkStatus = agentManager.getRelayNetworkStatus();
+    // Get status from both legacy and Nostr ARN
+    const legacyRelayStatus = agentManager.getRelayNetworkStatus();
+    const nostrARNStatus = nostrAgentRelayNetwork.getNetworkStatus();
     
-    // If we have actual data with sufficient agents, return it
-    if (relayNetworkStatus && relayNetworkStatus.knownAgents && relayNetworkStatus.knownAgents.length >= 10) {
-      console.log(`✅ ARN Status: ${relayNetworkStatus.knownAgents.length} agents registered`);
-      return NextResponse.json({
-        success: true,
-        data: relayNetworkStatus,
-        timestamp: new Date().toISOString()
-      });
+    console.log(`🌐 Nostr ARN Status: ${nostrARNStatus.knownAgents} agents, ${nostrARNStatus.connectedRelays}/${nostrARNStatus.totalRelays} relays`);
+    console.log(`📡 Legacy ARN Status: ${legacyRelayStatus?.knownAgents?.length || 0} agents`);
+    
+    // Prefer Nostr ARN if it has agents, otherwise use legacy or mock data
+    let primaryStatus;
+    let dataSource = 'mock';
+    
+    if (nostrARNStatus.isRunning && nostrARNStatus.knownAgents > 0) {
+      // Convert Nostr ARN status to legacy format for compatibility
+      const nostrAgents = nostrAgentRelayNetwork.getKnownAgents();
+      const nostrRelayStatus = nostrAgentRelayNetwork.getRelayStatus();
+      
+      primaryStatus = {
+        isRunning: nostrARNStatus.isRunning,
+        knownAgents: nostrAgents.map(agent => ({
+          agentId: agent.agentId,
+          name: agent.name,
+          capabilities: agent.capabilities,
+          specialties: agent.specialties,
+          reputation: agent.reputation / 100, // Convert to decimal
+          cost: `$${agent.cost}`,
+          endpoint: agent.endpoint,
+          publicKey: agent.publicKey,
+          lastSeen: agent.lastSeen,
+          relays: [agent.publicKey.slice(0, 8)] // Use pubkey prefix as relay reference
+        })),
+        activeRequests: nostrAgentRelayNetwork.getActiveRequests().map(req => ({
+          requestId: req.requestId,
+          taskType: req.taskType,
+          payload: req.payload,
+          targetAgent: req.targetAgent,
+          maxCost: req.maxCost,
+          deadline: req.deadline,
+          requesterPubkey: req.requesterPubkey,
+          relays: [req.requesterPubkey.slice(0, 8)]
+        })),
+        taskCoordinations: nostrAgentRelayNetwork.getTaskCoordinations().map(coord => ({
+          taskId: coord.taskId,
+          coordinator: coord.coordinator,
+          agents: coord.agents,
+          taskData: coord.taskData,
+          timestamp: coord.timestamp
+        })),
+        relayStatus: nostrRelayStatus.map(relay => ({
+          url: relay.url,
+          connected: relay.connected,
+          latency: relay.latency,
+          agentCount: Math.floor(nostrARNStatus.knownAgents / nostrARNStatus.totalRelays),
+          lastPing: relay.lastPing
+        })),
+        connectedRelays: nostrARNStatus.connectedRelays,
+        totalRelays: nostrARNStatus.totalRelays,
+        uptime: nostrARNStatus.uptime
+      };
+      dataSource = 'nostr';
+    } else if (legacyRelayStatus && legacyRelayStatus.knownAgents && legacyRelayStatus.knownAgents.length >= 10) {
+      primaryStatus = legacyRelayStatus;
+      dataSource = 'legacy';
+    } else {
+      primaryStatus = getMockARNData();
+      dataSource = 'mock';
     }
     
-    console.log(`⚠️ Only ${relayNetworkStatus?.knownAgents?.length || 0} agents found in ARN, using enhanced mock data with real agent info`);
+    console.log(`✅ ARN Status (${dataSource}): ${primaryStatus.knownAgents.length} agents`);
     
-    // Return enhanced mock data with real agent capabilities
     return NextResponse.json({
       success: true,
-      data: getMockARNData(),
+      data: primaryStatus,
+      meta: {
+        dataSource,
+        nostrConnected: nostrARNStatus.isRunning,
+        nostrRelays: `${nostrARNStatus.connectedRelays}/${nostrARNStatus.totalRelays}`,
+        legacyAgents: legacyRelayStatus?.knownAgents?.length || 0
+      },
       timestamp: new Date().toISOString()
     });
     

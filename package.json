@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit",
     "test": "npx ts-node --project tsconfig.test.json -r tsconfig-paths/register scripts/run-tests.ts",
     "test:arn": "npx ts-node --project tsconfig.test.json -r tsconfig-paths/register tests/agent-relay-network.test.ts",
+    "test:nostr": "npx ts-node --project tsconfig.test.json -r tsconfig-paths/register scripts/test-nostr-arn.ts",
     "agents:start": "node dist/agents/manager.js",
     "agents:build": "tsc --project tsconfig.agents.json && tsc-alias -p tsconfig.agents.json",
     "gateway:start": "node dist/gateway-server.js",
