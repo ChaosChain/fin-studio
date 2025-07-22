@@ -243,7 +243,9 @@ export async function GET() {
     let primaryStatus;
     let dataSource = 'mock';
     
-    if (nostrARNStatus.isRunning && nostrARNStatus.knownAgents > 0) {
+    // TEMPORARY: Force mock data to show model variants for demo
+    // TODO: Implement model variant generation in Nostr ARN
+    if (false && nostrARNStatus.isRunning && nostrARNStatus.knownAgents > 0) {
       // Convert Nostr ARN status to legacy format for compatibility
       const nostrAgents = nostrAgentRelayNetwork.getKnownAgents();
       const nostrRelayStatus = nostrAgentRelayNetwork.getRelayStatus();

@@ -185,8 +185,8 @@ export default function ARNIntegrationDemo({ isActive = false }: ARNIntegrationD
   const relayStatus = arnMetrics?.relayStatus || [];
 
   // Categorize agents
-  const baseAgents = knownAgents.filter(a => !a.agentId.includes('-gpt4') && !a.agentId.includes('verifier'));
-  const modelVariants = knownAgents.filter(a => a.agentId.includes('-gpt4'));
+  const baseAgents = knownAgents.filter(a => !a.agentId.includes('-gpt4') && !a.agentId.includes('-gpt4o') && !a.agentId.includes('verifier'));
+  const modelVariants = knownAgents.filter(a => a.agentId.includes('-gpt4') || a.agentId.includes('-gpt4o'));
   const verifierAgents = knownAgents.filter(a => a.agentId.includes('verifier'));
 
   const getStatusBadge = (isRunning: boolean) => (
