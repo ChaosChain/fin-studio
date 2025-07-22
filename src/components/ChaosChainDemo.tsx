@@ -9,6 +9,7 @@ import DKGVisualizer from './DKGVisualizer';
 import VerifierNetworkVisualizer from './VerifierNetworkVisualizer';
 import FinalReport from './FinalReport';
 import ARNIntegrationDemo from './ARNIntegrationDemo';
+import { ChatInterface } from './ChatInterface';
 import { PaymentDialog } from './PaymentDialog';
 import { X402PaymentRequirements } from '@/types/payment';
 
@@ -47,7 +48,7 @@ export default function ChaosChainDemo() {
   const [consensusData, setConsensusData] = useState<any[]>([]);
   const [systemMetrics, setSystemMetrics] = useState<SystemMetrics | null>(null);
   const [systemStatus, setSystemStatus] = useState<any>(null);
-  const [selectedSymbol, setSelectedSymbol] = useState('AAPL');
+  const [currentSymbols, setCurrentSymbols] = useState<string[]>([]);
   const [dkgRefreshTrigger, setDkgRefreshTrigger] = useState(0);
   const [showFinalReport, setShowFinalReport] = useState(false);
   const [showAgentRelayNetwork, setShowAgentRelayNetwork] = useState(true); // Always show ARN
@@ -67,7 +68,12 @@ export default function ChaosChainDemo() {
   const [isExecutingPayments, setIsExecutingPayments] = React.useState(false);
   const [currentPaymentIndex, setCurrentPaymentIndex] = React.useState(0);
 
-  const runComprehensiveAnalysis = async () => {
+  const handleAnalysisRequest = (symbols: string[], intent: string, analysisType: string) => {
+    setCurrentSymbols(symbols);
+    runComprehensiveAnalysis(symbols);
+  };
+
+  const runComprehensiveAnalysis = async (symbols: string[]) => {
     setIsAnalyzing(true);
     try {
       // Step 1: Show ARN agent discovery phase
@@ -88,7 +94,7 @@ export default function ChaosChainDemo() {
           action: 'coordinate_task',
           payload: {
             taskType: 'comprehensive_analysis',
-            symbols: [selectedSymbol],
+            symbols: symbols,
             analysisType: 'comprehensive'
           }
         }),
@@ -109,7 +115,7 @@ export default function ChaosChainDemo() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          symbols: [selectedSymbol],
+          symbols: symbols,
           analysisType: 'comprehensive',
           useARN: true, // Always use ARN - it's now core functionality
           arnTaskId: arnData.data?.taskId
@@ -577,33 +583,33 @@ export default function ChaosChainDemo() {
           </p>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4 items-center">
-            <select 
-              value={selectedSymbol} 
-              onChange={(e) => setSelectedSymbol(e.target.value)}
-              className="px-3 py-2 border rounded-md"
-            >
-              <optgroup label="Stocks">
-                <option value="AAPL">AAPL (Apple)</option>
-                <option value="GOOGL">GOOGL (Google)</option>
-                <option value="MSFT">MSFT (Microsoft)</option>
-                <option value="TSLA">TSLA (Tesla)</option>
-                <option value="NVDA">NVDA (NVIDIA)</option>
-                <option value="META">META (Meta)</option>
-                <option value="AMZN">AMZN (Amazon)</option>
-              </optgroup>
-              <optgroup label="Cryptocurrencies">
-                <option value="BTC">BTC (Bitcoin)</option>
-                <option value="ETH">ETH (Ethereum)</option>
-              </optgroup>
-            </select>
-            <Button 
-              onClick={runComprehensiveAnalysis} 
-              disabled={isAnalyzing}
-              className="min-w-[200px]"
-            >
-              {isAnalyzing ? '🔄 Analyzing...' : '🚀 Start Analysis'}
-            </Button>
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                💬 Ask AI to Analyze Stocks or Crypto
+              </h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Use natural language to request analysis of specific assets
+              </p>
+            </div>
+            
+            <div className="h-64">
+              <ChatInterface 
+                onAnalysisRequest={handleAnalysisRequest}
+                isAnalyzing={isAnalyzing}
+                disabled={false}
+              />
+            </div>
+            
+            {currentSymbols.length > 0 && (
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                  Currently analyzing: {currentSymbols.join(', ')}
+                </p>
+              </div>
+            )}
+            
+            <div className="flex gap-2">
             {analysisResult && systemMetrics && (
               hasPaidForReport ? (
                 <Button 
@@ -635,6 +641,7 @@ export default function ChaosChainDemo() {
             >
               {showAgentRelayNetwork ? '🔼 Hide Relay Network' : '🌐 Show Agent Relay Network'}
             </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -1160,7 +1167,7 @@ export default function ChaosChainDemo() {
           analysisResult={analysisResult}
           consensusData={consensusData}
           systemMetrics={systemMetrics}
-          symbol={selectedSymbol}
+          symbol={currentSymbols[0] || 'Unknown'}
           onClose={() => setShowFinalReport(false)}
         />
       )}

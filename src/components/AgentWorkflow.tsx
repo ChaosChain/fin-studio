@@ -5,6 +5,7 @@ import { useApp } from '@/app/providers';
 import { PDFReportGenerator } from './PDFReportGenerator';
 import { CostReport, CostSummary, RequestCost } from '@/components/CostReport';
 import { PaymentDialog } from './PaymentDialog';
+import { ChatInterface } from './ChatInterface';
 import { X402PaymentRequirements } from '@/types/payment';
 
 interface WorkflowStep {
@@ -22,8 +23,6 @@ export function AgentWorkflow() {
   const [workflow, setWorkflow] = useState<WorkflowStep[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [currentSymbols, setCurrentSymbols] = useState<string[]>([]);
-  const [stockInput, setStockInput] = useState('');
-  const [inputError, setInputError] = useState('');
   const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
   const [showCostReport, setShowCostReport] = useState(false);
   const [collectedCosts, setCollectedCosts] = useState<any[]>([]);
@@ -33,89 +32,49 @@ export function AgentWorkflow() {
 
   const AGENT_WALLET_ADDRESS = process.env.NEXT_PUBLIC_AGENT_WALLET_ADDRESS || '0x0000000000000000000000000000000000000000';
 
-  const parseStockSymbols = (input: string): string[] => {
-    // Remove extra spaces, convert to uppercase, and split by comma or space
-    const symbols = input
-      .trim()
-      .toUpperCase()
-      .replace(/\s+/g, ' ')
-      .split(/[,\s]+/)
-      .filter(symbol => symbol.length > 0);
-
-    return symbols;
-  };
-
-  const validateStockSymbols = (symbols: string[]): boolean => {
-    if (symbols.length === 0) {
-      setInputError('Please enter at least one stock symbol');
-      return false;
+  const aggregateCosts = (costs: RequestCost[]): CostSummary => {
+    console.log('🔍 Frontend - Aggregating costs:', costs);
+    
+    if (!costs || costs.length === 0) {
+      return {
+        totalCost: 0,
+        totalRequests: 0,
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        totalTokens: 0,
+        agentCosts: [],
+        costBreakdown: {
+          inputCost: 0,
+          outputCost: 0
+        },
+        sessionStart: new Date(),
+        sessionEnd: new Date()
+      };
     }
 
-    if (symbols.length > 10) {
-      setInputError('Maximum 10 stock symbols allowed');
-      return false;
-    }
+    const totalCost = costs.reduce((sum, cost) => sum + cost.totalCost, 0);
+    const totalInputTokens = costs.reduce((sum, cost) => sum + cost.inputTokens, 0);
+    const totalOutputTokens = costs.reduce((sum, cost) => sum + cost.outputTokens, 0);
+    const totalTokens = totalInputTokens + totalOutputTokens;
 
-    // Basic validation: symbols should be 1-5 characters, all letters (including crypto)
-    const validSymbols = ['BTC', 'ETH']; // Known crypto symbols
-    const invalidSymbols = symbols.filter(symbol =>
-      !/^[A-Z]{1,5}$/.test(symbol) && !validSymbols.includes(symbol)
-    );
+    const inputCost = costs.reduce((sum, cost) => sum + cost.inputCost, 0);
+    const outputCost = costs.reduce((sum, cost) => sum + cost.outputCost, 0);
 
-    if (invalidSymbols.length > 0) {
-      setInputError(`Invalid symbols: ${invalidSymbols.join(', ')}. Use 1-5 letter symbols or BTC/ETH.`);
-      return false;
-    }
-
-    setInputError('');
-    return true;
-  };
-
-  const aggregateCosts = (costs: any[]): CostSummary => {
-    const agentCostMap = new Map<string, any>();
-
-    costs.forEach(cost => {
-      // Handle RequestCost structure (which has requestId instead of agentId)
-      const agentId = cost.requestId ? cost.requestId.split('-')[0] : 'unknown';
-      const agentName = getAgentName(agentId);
-
-      if (!agentCostMap.has(agentId)) {
-        agentCostMap.set(agentId, {
-          agentId,
-          agentName,
-          requestCount: 0,
-          totalInputTokens: 0,
-          totalOutputTokens: 0,
-          totalTokens: 0,
-          totalCost: 0,
-          averageCostPerRequest: 0,
-          requests: []
-        });
-      }
-
-      const agent = agentCostMap.get(agentId);
-      agent.requestCount++;
-      agent.totalInputTokens += cost.inputTokens || 0;
-      agent.totalOutputTokens += cost.outputTokens || 0;
-      agent.totalTokens += cost.totalTokens || 0;
-      agent.totalCost += cost.totalCost || 0;
-      agent.averageCostPerRequest = agent.totalCost / agent.requestCount;
-      agent.requests.push(cost);
-    });
-
-    const agentCosts = Array.from(agentCostMap.values());
-    const totalCost = agentCosts.reduce((sum, agent) => sum + agent.totalCost, 0);
-    const totalRequests = agentCosts.reduce((sum, agent) => sum + agent.requestCount, 0);
-    const totalInputTokens = agentCosts.reduce((sum, agent) => sum + agent.totalInputTokens, 0);
-    const totalOutputTokens = agentCosts.reduce((sum, agent) => sum + agent.totalOutputTokens, 0);
-    const totalTokens = agentCosts.reduce((sum, agent) => sum + agent.totalTokens, 0);
-
-    const inputCost = costs.reduce((sum, cost) => sum + (cost.inputCost || 0), 0);
-    const outputCost = costs.reduce((sum, cost) => sum + (cost.outputCost || 0), 0);
+    const agentCosts = costs.map((cost, index) => ({
+      agentId: `agent-${index}`,
+      agentName: `Agent ${index + 1}`,
+      requestCount: 1,
+      totalInputTokens: cost.inputTokens,
+      totalOutputTokens: cost.outputTokens,
+      totalTokens: cost.totalTokens || cost.inputTokens + cost.outputTokens,
+      totalCost: cost.totalCost,
+      averageCostPerRequest: cost.totalCost,
+      requests: [cost]
+    }));
 
     return {
       totalCost,
-      totalRequests,
+      totalRequests: costs.length,
       totalInputTokens,
       totalOutputTokens,
       totalTokens,
@@ -129,17 +88,17 @@ export function AgentWorkflow() {
     };
   };
 
-  const runFullWorkflow = async () => {
+  const handleAnalysisRequest = (symbols: string[], intent: string, analysisType: string) => {
+    if (!a2aClient || !isConnected) return;
+    
+    setCurrentSymbols(symbols);
+    runFullWorkflow(symbols);
+  };
+
+  const runFullWorkflow = async (symbols: string[]) => {
     if (!a2aClient || !isConnected) return;
 
-    const symbols = parseStockSymbols(stockInput);
-
-    if (!validateStockSymbols(symbols)) {
-      return;
-    }
-
     setIsRunning(true);
-    setCurrentSymbols(symbols);
     setCollectedCosts([]); // Reset costs for new workflow
 
     // Define two causality flows for demo
@@ -291,11 +250,6 @@ export function AgentWorkflow() {
     }
   };
 
-  const handleQuickSelect = (symbols: string) => {
-    setStockInput(symbols);
-    setInputError('');
-  };
-
   // Payment requirements for $1 USDC on Base Sepolia
   const getReportPaymentRequirements = (): X402PaymentRequirements => ({
     scheme: 'exact',
@@ -334,95 +288,29 @@ export function AgentWorkflow() {
         <h2 className="text-2xl font-semibold">Agent Communication Workflow</h2>
       </div>
 
-      {/* Stock Input Section */}
-      <div className="mb-6 space-y-4">
-        <div>
-          <label htmlFor="stock-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Enter Stock Symbols
-          </label>
-          <input
-            id="stock-input"
-            type="text"
-            value={stockInput}
-            onChange={(e) => setStockInput(e.target.value)}
-            placeholder="e.g., AAPL, GOOGL, MSFT, BTC, ETH or TSLA NVDA"
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-            disabled={isRunning}
-          />
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Separate multiple symbols with commas or spaces (max 10 symbols). Supports stocks and crypto (BTC, ETH)
+      {/* Chat Interface Section */}
+      <div className="mb-6">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">
+            💬 Chat with AI Analysis Assistant
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Ask me to analyze specific stocks or cryptocurrencies using natural language
           </p>
-          {inputError && (
-            <p className="text-sm text-red-500 mt-1">{inputError}</p>
-          )}
         </div>
-
-        {/* Quick Select Examples */}
-        <div>
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quick Select:</p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => handleQuickSelect('AAPL')}
-              className="px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800"
-              disabled={isRunning}
-            >
-              AAPL (Apple)
-            </button>
-            <button
-              onClick={() => handleQuickSelect('GOOGL, MSFT, AAPL')}
-              className="px-3 py-1 text-sm bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full hover:bg-green-200 dark:hover:bg-green-800"
-              disabled={isRunning}
-            >
-              Big Tech (GOOGL, MSFT, AAPL)
-            </button>
-            <button
-              onClick={() => handleQuickSelect('TSLA, NVDA, AMD')}
-              className="px-3 py-1 text-sm bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 rounded-full hover:bg-purple-200 dark:hover:bg-purple-800"
-              disabled={isRunning}
-            >
-              Growth Stocks (TSLA, NVDA, AMD)
-            </button>
-            <button
-              onClick={() => handleQuickSelect('SPY, QQQ, IWM')}
-              className="px-3 py-1 text-sm bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 rounded-full hover:bg-orange-200 dark:hover:bg-orange-800"
-              disabled={isRunning}
-            >
-              ETFs (SPY, QQQ, IWM)
-            </button>
-            <button
-              onClick={() => handleQuickSelect('BTC, ETH')}
-              className="px-3 py-1 text-sm bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded-full hover:bg-yellow-200 dark:hover:bg-yellow-800"
-              disabled={isRunning}
-            >
-              Crypto (BTC, ETH)
-            </button>
-          </div>
+        <div className="h-64">
+          <ChatInterface 
+            onAnalysisRequest={handleAnalysisRequest}
+            isAnalyzing={isRunning}
+            disabled={!isConnected}
+          />
         </div>
-
-        {/* Run Button */}
-        <button
-          onClick={runFullWorkflow}
-          disabled={!isConnected || isRunning || !stockInput.trim()}
-          className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-        >
-          {isRunning ? (
-            <>
-              <div className="loading-spinner h-4 w-4"></div>
-              <span>Running Workflow...</span>
-            </>
-          ) : (
-            <>
-              <span>🚀</span>
-              <span>Run A2A Workflow</span>
-            </>
-          )}
-        </button>
       </div>
 
       {workflow.length === 0 && (
         <div className="text-center py-8 text-gray-600 dark:text-gray-400">
           <p className="text-lg mb-2">Ready to demonstrate agent communication</p>
-          <p className="text-sm">Enter stock symbols above and click "Run A2A Workflow" to see agents collaborate in real-time</p>
+          <p className="text-sm">Ask the AI assistant about specific stocks or crypto to see agents collaborate in real-time</p>
         </div>
       )}
 
@@ -448,78 +336,59 @@ export function AgentWorkflow() {
               </div>
 
               <div className="flex-grow">
-                <div className="flex items-center space-x-2">
-                  <h3 className="font-medium">{getAgentName(step.agent)}</h3>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">→</span>
-                  <span className="text-sm font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                    {step.action}
-                  </span>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">{getAgentName(step.agent)}</h3>
+                  <div className={`flex items-center space-x-2 ${getStatusColor(step.status)}`}>
+                    <span>{getStatusIcon(step.status)}</span>
+                    <span className="text-sm capitalize">{step.status}</span>
+                    {step.duration && (
+                      <span className="text-xs text-gray-500">({step.duration}ms)</span>
+                    )}
+                  </div>
                 </div>
-
-                {step.duration && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Completed in {step.duration}ms
-                  </p>
-                )}
-
-                {step.result && step.status === 'completed' && (
-                  <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded text-xs">
-                    <p className="font-medium text-green-800 dark:text-green-400">Agent Response:</p>
-                    <p className="text-green-700 dark:text-green-300 mt-1">
-                      {typeof step.result === 'object' ?
-                        `Success: ${Object.keys(step.result).join(', ')}` :
-                        step.result.toString()
-                      }
-                    </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{step.action.replace(/_/g, ' ')}</p>
+                
+                {step.result && (
+                  <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded text-xs">
+                    <p className="font-medium">Result:</p>
+                    <p className="truncate">{JSON.stringify(step.result).substring(0, 100)}...</p>
                   </div>
                 )}
               </div>
-
-              <div className={`flex-shrink-0 flex items-center space-x-2 ${getStatusColor(step.status)}`}>
-                <span className="text-lg">{getStatusIcon(step.status)}</span>
-                <span className="text-sm font-medium capitalize">{step.status}</span>
-              </div>
             </div>
           ))}
+        </div>
+      )}
 
-          {/* PDF Export - only show after successful completion */}
-          {workflow.length > 0 && workflow.every(step => step.status === 'completed') && (
-            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-              {hasPaidForReport ? (
-                <PDFReportGenerator
-                  workflow={workflow}
-                  symbols={currentSymbols}
-                />
-              ) : (
-                <button
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 flex items-center space-x-2 transition-all duration-200 transform hover:scale-105"
-                  onClick={handleRequirePayment}
-                >
-                  <span>💳</span>
-                  <span>Pay $1 USDC to Download Report</span>
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Cost Report - only show after successful completion */}
-          {workflow.length > 0 && workflow.every(step => step.status === 'completed') && (
-            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-              <CostReport
-                costSummary={costSummary}
-                isVisible={showCostReport}
+      {/* Cost Report Section */}
+      {showCostReport && costSummary && (
+        <div className="mt-8 space-y-4">
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold mb-4">💰 Workflow Cost Analysis</h3>
+            <CostReport 
+              costSummary={costSummary} 
+              isVisible={showCostReport}
+            />
+          </div>
+          
+          {costSummary && hasPaidForReport && (
+            <div className="mt-4">
+              <PDFReportGenerator 
+                workflow={workflow}
+                symbols={currentSymbols}
               />
             </div>
           )}
         </div>
       )}
-      {/* PaymentDialog for report download */}
+
+      {/* Payment Dialog */}
       {paymentRequirements && (
         <PaymentDialog
           isOpen={isPaymentDialogOpen}
           onClose={() => setIsPaymentDialogOpen(false)}
           paymentRequirements={paymentRequirements}
-          agentName="Report Download"
+          agentName="Analysis Report"
           onPaymentSuccess={handlePaymentSuccess}
           onPaymentError={handlePaymentError}
         />
