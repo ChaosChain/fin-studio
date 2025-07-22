@@ -39,7 +39,7 @@ The Final Analysis Report is a comprehensive end-to-end feature that transforms 
 - **Technical Analysis**: Price targets, trading signals, risk management
 - **Macro Analysis**: Economic indicators, policy stance, recession probability  
 - **Investment Insights**: Synthesized recommendations and risk factors
-- **Final Recommendations**: BUY/HOLD/CAUTION with confidence levels
+- **Final Analysis**: POSITIVE/NEUTRAL/CAUTIOUS with confidence levels
 
 ## Technical Architecture
 

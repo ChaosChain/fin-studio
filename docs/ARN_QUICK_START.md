@@ -168,7 +168,7 @@ if (!agentManager.getIsRunning()) {
 ### 🤖 Base Agents (4)
 - **Market Research**: News analysis, sentiment, trends
 - **Macro Research**: Economic indicators, policy analysis
-- **Price Analysis**: Technical analysis, price predictions  
+- **Price Analysis**: Technical analysis, price assessment  
 - **Insights**: Report generation, recommendations
 
 ### ⚡ Model Variants (8)

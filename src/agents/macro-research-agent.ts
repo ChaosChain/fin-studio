@@ -96,7 +96,7 @@ Please provide structured analysis with the following format:
 
 **MONETARY POLICY IMPLICATIONS:**
 - Current Policy Stance: [hawkish/dovish/neutral]
-- Expected Rate Trajectory: [specific forecast]
+- Expected Rate Trajectory: [specific assessment]
 - Policy Effectiveness: [assessment]
 - Currency Impact: [specific effects]
 
@@ -118,7 +118,7 @@ Please provide structured analysis with the following format:
 - Key Risk Factors: [specific concerns]
 - Investment Strategy: [specific recommendations]
 
-Provide exact numbers, percentages, and specific forecasts. Avoid generic statements.
+Provide exact numbers, percentages, and specific assessments. Avoid generic statements.
       `;
 
       const startTime = Date.now();
@@ -135,7 +135,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
         messages: [
           {
             role: "system",
-            content: "You are a senior macroeconomic analyst with expertise in economic indicators, central bank policy, and economic forecasting. Provide detailed, professional analysis with specific metrics and actionable insights."
+            content: "You are a senior macroeconomic analyst with expertise in economic indicators, central bank policy, and economic assessment. Provide detailed, professional analysis with specific metrics and actionable insights."
           },
           {
             role: "user",
@@ -265,14 +265,14 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
       - Duration and credit positioning
       - Currency and commodity impacts
 
-      Provide specific rate forecasts, timing, and probability assessments.`;
+      Provide specific rate assessments, timing, and probability evaluations.`;
 
       const response = await this.openai.chat.completions.create({
         "model": this.model,
         messages: [
           {
             role: "system",
-            content: "You are a central bank policy expert with deep understanding of monetary policy, financial markets, and economic theory. Provide detailed policy analysis with specific forecasts and market implications."
+            content: "You are a central bank policy expert with deep understanding of monetary policy, financial markets, and economic theory. Provide detailed policy analysis with specific assessments and market implications."
           },
           {
             role: "user",
@@ -305,7 +305,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
             futureOutlook: analysis.futureOutlook,
             riskFactors: analysis.riskFactors,
             investmentImplications: analysis.investmentImplications,
-            keyForecasts: analysis.keyForecasts,
+            keyAssessments: analysis.keyAssessments,
             confidenceLevel: analysis.confidenceLevel,
             timestamp: new Date().toISOString()
           },
@@ -378,7 +378,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
       - Environmental and sustainability issues
 
       **GROWTH OUTLOOK:**
-      - Short-term growth forecasts
+      - Short-term growth assessments
       - Medium-term potential estimates
       - Long-term secular trends
       - Recession risk assessment
@@ -391,14 +391,14 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
       - Investment priorities
       - Trade and competitiveness
 
-      Provide specific growth forecasts, confidence intervals, and policy recommendations.`;
+      Provide specific growth assessments, confidence intervals, and policy recommendations.`;
 
       const response = await this.openai.chat.completions.create({
         "model": this.model,
         messages: [
           {
             role: "system",
-            content: "You are a GDP and economic growth specialist with expertise in national accounts, productivity analysis, and growth theory. Provide detailed growth analysis with specific forecasts and policy insights."
+            content: "You are a GDP and economic growth specialist with expertise in national accounts, productivity analysis, and growth theory. Provide detailed growth analysis with specific assessments and policy insights."
           },
           {
             role: "user",
@@ -431,12 +431,12 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
             structuralFactors: analysis.structuralFactors,
             growthOutlook: analysis.growthOutlook,
             policyImplications: analysis.policyImplications,
-            keyMetrics: analysis.keyMetrics,
-            forecasts: analysis.forecasts,
-            confidenceLevel: analysis.confidenceLevel,
-            timestamp: new Date().toISOString()
-          },
-          context: message.payload.context
+                      keyMetrics: analysis.keyMetrics,
+          assessments: analysis.assessments,
+          confidenceLevel: analysis.confidenceLevel,
+          timestamp: new Date().toISOString()
+        },
+        context: message.payload.context
         },
         metadata: {
           responseToMessageId: message.id,
@@ -512,13 +512,13 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
       - Communication strategies
 
       **INFLATION OUTLOOK:**
-      - Short-term inflation forecasts
+      - Short-term inflation assessments
       - Medium-term inflation path
       - Long-term inflation anchoring
       - Risk factors and scenarios
       - Policy effectiveness assessment
 
-      Provide specific inflation forecasts, probability ranges, and policy recommendations.`;
+      Provide specific inflation assessments, probability ranges, and policy recommendations.`;
 
       const startTime = Date.now();
       console.log('🚀 Macro Research Agent - Making OpenAI API call:', {
@@ -534,7 +534,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
         messages: [
           {
             role: "system",
-            content: "You are an inflation specialist with expertise in price dynamics, monetary economics, and inflation forecasting. Provide detailed inflation analysis with specific forecasts and policy insights."
+            content: "You are an inflation specialist with expertise in price dynamics, monetary economics, and inflation assessment. Provide detailed inflation analysis with specific assessments and policy insights."
           },
           {
             role: "user",
@@ -587,11 +587,11 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
             sectoralAnalysis: analysis.sectoralAnalysis,
             policyResponse: analysis.policyResponse,
             inflationOutlook: analysis.inflationOutlook,
-            keyMetrics: analysis.keyMetrics,
-            forecasts: analysis.forecasts,
-            confidenceLevel: analysis.confidenceLevel,
-            timestamp: new Date().toISOString(),
-            costInfo: requestCost
+                      keyMetrics: analysis.keyMetrics,
+          assessments: analysis.assessments,
+          confidenceLevel: analysis.confidenceLevel,
+          timestamp: new Date().toISOString(),
+          costInfo: requestCost
           },
           context: message.payload.context
         },
@@ -714,7 +714,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
         messages: [
           {
             role: "system",
-            content: "You are a chief economist. Provide comprehensive macroeconomic outlook and forecasts."
+            content: "You are a chief economist. Provide comprehensive macroeconomic outlook and assessments."
           },
           {
             role: "user",
@@ -897,8 +897,8 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
         durationCredit: this.extractStructuredSection(content, 'Duration and credit positioning') || 'Fixed income positioning',
         currencyCommodity: this.extractStructuredSection(content, 'Currency and commodity impacts') || 'Currency/commodity effects'
       },
-      keyForecasts: {
-        nextRateDecision: this.extractStructuredSection(content, 'rate forecasts') || 'Rate forecast',
+      keyAssessments: {
+        nextRateDecision: this.extractStructuredSection(content, 'rate assessments') || 'Rate assessment',
         probabilityAssessment: this.extractNumericValue(content, 'probability', 60),
         timingEstimate: this.extractStructuredSection(content, 'timing') || 'Timing assessment'
       },
@@ -957,7 +957,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
         environmental: this.extractStructuredSection(content, 'Environmental and sustainability') || 'Environmental factors'
       },
       growthOutlook: {
-        shortTermForecast: this.extractStructuredSection(content, 'Short-term growth forecasts') || 'Short-term outlook',
+        shortTermAssessment: this.extractStructuredSection(content, 'Short-term growth assessments') || 'Short-term outlook',
         mediumTermPotential: this.extractStructuredSection(content, 'Medium-term potential estimates') || 'Medium-term potential',
         longTermTrends: this.extractStructuredSection(content, 'Long-term secular trends') || 'Long-term trends',
         recessionRisk: this.extractStructuredSection(content, 'Recession risk assessment') || 'Recession risk',
@@ -972,11 +972,11 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
       },
       keyMetrics: {
         currentGrowthRate: this.extractNumericValue(content, 'GDP growth', 2.5),
-        forecastGrowthRate: this.extractNumericValue(content, 'forecast', 2.0),
+        assessedGrowthRate: this.extractNumericValue(content, 'assessment', 2.0),
         potentialGrowthRate: this.extractNumericValue(content, 'potential', 2.2),
         outputGap: this.extractNumericValue(content, 'output gap', 0.0)
       },
-      forecasts: {
+      assessments: {
         nextQuarter: this.extractNumericValue(content, 'next quarter', 2.0),
         nextYear: this.extractNumericValue(content, 'next year', 2.5),
         confidenceInterval: this.extractStructuredSection(content, 'confidence interval') || '±0.5%'
@@ -1043,7 +1043,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
         communicationStrategies: this.extractStructuredSection(content, 'Communication strategies') || 'Communication analysis'
       },
       inflationOutlook: {
-        shortTermForecast: this.extractStructuredSection(content, 'Short-term inflation forecasts') || 'Short-term outlook',
+        shortTermAssessment: this.extractStructuredSection(content, 'Short-term inflation assessments') || 'Short-term outlook',
         mediumTermPath: this.extractStructuredSection(content, 'Medium-term inflation path') || 'Medium-term path',
         longTermAnchoring: this.extractStructuredSection(content, 'Long-term inflation anchoring') || 'Long-term anchoring',
         riskFactors: this.extractBulletPoints(content, 'Risk factors and scenarios'),
@@ -1055,7 +1055,7 @@ Provide exact numbers, percentages, and specific forecasts. Avoid generic statem
         expectedInflation: this.extractNumericValue(content, 'expected inflation', 2.8),
         targetInflation: this.extractNumericValue(content, 'target', 2.0)
       },
-      forecasts: {
+      assessments: {
         nextQuarter: this.extractNumericValue(content, 'next quarter', 2.8),
         nextYear: this.extractNumericValue(content, 'next year', 2.5),
         confidenceInterval: this.extractStructuredSection(content, 'confidence interval') || '±0.3%'

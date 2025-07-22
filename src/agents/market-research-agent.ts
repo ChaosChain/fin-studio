@@ -887,8 +887,8 @@ Provide specific numbers, percentages, and actionable insights. Use exact metric
         crowdBehavior: this.extractStructuredSection(content, 'crowd behavior') || 'Crowd analysis',
         fearGreed: this.extractStructuredSection(content, 'fear/greed') || 'Fear/greed indicators'
       },
-      predictiveInsights: {
-        pricePredictions: this.extractStructuredSection(content, 'price predictions') || 'Price forecasts',
+              analyticalInsights: {
+          priceAnalysis: this.extractStructuredSection(content, 'price analysis') || 'Price assessment',
         reversalProbability: this.extractNumericValue(content, 'reversal probability', 30),
         catalystsAhead: this.extractBulletPoints(content, 'catalysts ahead'),
         riskReward: this.extractStructuredSection(content, 'risk/reward') || 'Risk/reward based on sentiment'
@@ -974,11 +974,11 @@ Provide specific numbers, percentages, and actionable insights. Use exact metric
   private extractRecommendation(content: string): Recommendation {
     const lowerContent = content.toLowerCase();
     if (lowerContent.includes('buy') || lowerContent.includes('strong buy')) {
-      return Recommendation.BUY;
-    } else if (lowerContent.includes('sell') || lowerContent.includes('strong sell')) {
-      return Recommendation.SELL;
+      return Recommendation.POSITIVE;
+    } else if (lowerContent.includes('negative') || lowerContent.includes('bearish')) {
+      return Recommendation.NEGATIVE;
     }
-    return Recommendation.HOLD;
+          return Recommendation.NEUTRAL;
   }
 
   private extractConfidence(content: string): number {

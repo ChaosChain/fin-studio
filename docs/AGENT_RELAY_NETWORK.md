@@ -34,7 +34,7 @@ The ARN manages 16 specialized agents organized into three categories:
 Core analysis agents that perform primary financial analysis:
 - **Market Research Agent**: News analysis, market sentiment, trend analysis
 - **Macro Research Agent**: Economic indicators, policy analysis, macro trends  
-- **Price Analysis Agent**: Technical analysis, chart patterns, price predictions
+- **Price Analysis Agent**: Technical analysis, chart patterns, price assessment
 - **Insights Agent**: Report generation, synthesis, strategic recommendations
 
 #### **Model Variants (8)**
@@ -293,7 +293,7 @@ Supports multiple actions:
 Core financial analysis agents:
 - **Market Research**: Analyzes news, sentiment, and market trends
 - **Macro Research**: Studies economic indicators and policy impacts
-- **Price Analysis**: Performs technical analysis and price predictions
+- **Price Analysis**: Performs technical analysis and price assessment
 - **Insights**: Generates recommendations and strategic insights
 
 ##### **⚡ Model Variants (8)**

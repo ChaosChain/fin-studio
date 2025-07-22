@@ -196,7 +196,7 @@ Please provide structured analysis with the following format:
 - Key Investment Themes: [specific themes to focus on]
 - Risk Factors: [specific risks to watch]
 - Positioning Recommendations: [specific actions to take]
-- Near-term Outlook: [specific predictions for next few days]
+- Near-term Outlook: [specific assessments for next few days]
 
 Provide exact numbers, specific percentages, and actionable insights. Avoid generic statements. Use the current date ${dateString} in your analysis.
       `;
@@ -888,7 +888,7 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
     const lines = text.split('\n');
     
     for (const line of lines) {
-      if (line.includes('outlook') || line.includes('expect') || line.includes('forecast') || line.includes('future')) {
+      if (line.includes('outlook') || line.includes('expect') || line.includes('assessment') || line.includes('analysis')) {
         return line.replace(/[•\-*]/g, '').trim();
       }
     }

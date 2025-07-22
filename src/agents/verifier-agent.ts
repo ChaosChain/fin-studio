@@ -654,7 +654,7 @@ export class VerifierAgent {
       case 'macro':
         return {
           hasEconomicData: Boolean(data.indicators || data.economicAnalysis),
-          hasForecasts: Boolean(data.analysis || data.recommendations),
+          hasAnalysis: Boolean(data.analysis || data.recommendations),
           hasPolicyAnalysis: Boolean(data.policyStance || data.rateTrajectory)
         };
       default:
@@ -679,7 +679,7 @@ export class VerifierAgent {
         break;
       case 'macro':
         if (componentMetrics.hasEconomicData) bonus += 0.1;
-        if (componentMetrics.hasForecasts) bonus += 0.05;
+        if (componentMetrics.hasAnalysis) bonus += 0.05;
         if (componentMetrics.hasPolicyAnalysis) bonus += 0.05;
         break;
     }

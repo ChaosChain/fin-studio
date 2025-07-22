@@ -30,7 +30,7 @@ const test_chaos_demo_integration = async () => {
       symbol: 'AAPL',
       analysis: {
         sentiment: { score: 0.75, label: 'Positive' },
-        technical: { recommendation: 'BUY', confidence: 0.8 },
+        technical: { analysis: 'POSITIVE', confidence: 0.8 },
         macro: { outlook: 'Bullish', factors: ['Growth', 'Innovation'] },
         insights: { summary: 'Strong fundamentals with growth potential' }
       },

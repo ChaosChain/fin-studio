@@ -131,7 +131,7 @@ export default function AgentRelayNetworkStatus() {
         {
           agentId: 'price-analysis-agent',
           name: 'Price Analysis Agent',
-          capabilities: ['technical_analysis', 'price_prediction'],
+          capabilities: ['technical_analysis', 'price_analysis'],
           specialties: ['chart_patterns', 'indicators'],
           reputation: 0.92,
           cost: '$0.005',

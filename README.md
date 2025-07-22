@@ -1,12 +1,12 @@
-# Fin Studio - AI-Powered Investment Analysis Platform
+# Fin Studio - AI-Powered Investment Research & Analysis Platform
 
-Fin Studio is a modern, open source fintech platform that leverages advanced AI agents and blockchain payment systems to deliver comprehensive investment analysis. The platform is designed for extensibility, maintainability, and professional collaboration, with a focus on robust architecture and clear documentation.
+Fin Studio is a modern, open source fintech platform that leverages advanced AI agents and blockchain payment systems to deliver comprehensive investment research and analysis. The platform is designed for extensibility, maintainability, and professional collaboration, with a focus on robust architecture and clear documentation.
 
 ---
 
 ## Overview
 
-Fin Studio combines multi-agent AI analysis with integrated blockchain payments. Specialized AI agents communicate using Google Cloud's A2A (Agent-to-Agent) protocol, providing real-time market insights, technical analysis, macroeconomic research, and investment recommendations. The platform supports both HTTP-native and on-chain payment protocols for seamless financial operations.
+Fin Studio combines multi-agent AI analysis with integrated blockchain payments. Specialized AI agents communicate using Google Cloud's A2A (Agent-to-Agent) protocol, providing real-time market insights, technical analysis, macroeconomic research, and comprehensive investment analysis. The platform supports both HTTP-native and on-chain payment protocols for seamless financial operations.
 
 ### Key Features
 

@@ -112,7 +112,7 @@ export class NostrARNIntegration extends EventEmitter {
       {
         agentId: 'price-analysis-agent',
         name: 'Price Analysis Agent',
-        capabilities: ['technical_analysis', 'price_prediction', 'chart_analysis'],
+        capabilities: ['technical_analysis', 'price_analysis', 'chart_analysis'],
         specialties: ['technical_analysis', 'price_patterns', 'trading_signals'],
         reputation: 97,
         cost: '0.0015'

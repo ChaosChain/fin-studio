@@ -6,12 +6,12 @@ import { Providers } from './providers';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Fin Studio - AI-Powered Investment Analysis',
+  title: 'Fin Studio - AI-Powered Investment Research & Analysis',
   description: 'Advanced investment analysis platform powered by AI agents using A2A protocol',
   keywords: ['fintech', 'investment', 'AI', 'analysis', 'A2A protocol'],
   authors: [{ name: 'Fin Studio Team' }],
   openGraph: {
-    title: 'Fin Studio - AI-Powered Investment Analysis',
+    title: 'Fin Studio - AI-Powered Investment Research & Analysis',
     description: 'Advanced investment analysis platform powered by AI agents',
     type: 'website',
   },

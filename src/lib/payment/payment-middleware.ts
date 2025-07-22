@@ -219,7 +219,7 @@ export const DEFAULT_PAYMENT_CONFIG: PaymentMiddlewareConfig = {
       pricePerRequest: '$0.03',
       network: 'base-sepolia',
       payToAddress: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-      description: 'AI-Generated Investment Insights',
+              description: 'AI-Generated Investment Analysis',
       enableEscrow: true,
       authorizationExpiry: 3600,
       refundExpiry: 86400,

@@ -20,7 +20,7 @@ async function testNostrARN() {
     const agentProfile = {
       agentId: 'test-agent-1',
       name: 'Test Financial Agent',
-      capabilities: ['market_analysis', 'price_prediction'],
+      capabilities: ['market_analysis', 'price_analysis'],
       specialties: ['crypto', 'stocks'],
       reputation: 95,
       cost: '0.001'

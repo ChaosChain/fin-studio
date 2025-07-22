@@ -117,11 +117,9 @@ export enum AnalysisType {
 }
 
 export enum Recommendation {
-  STRONG_BUY = 'strong_buy',
-  BUY = 'buy',
-  HOLD = 'hold',
-  SELL = 'sell',
-  STRONG_SELL = 'strong_sell'
+  POSITIVE = 'positive',
+  NEGATIVE = 'negative', 
+  NEUTRAL = 'neutral'
 }
 
 export interface Portfolio {

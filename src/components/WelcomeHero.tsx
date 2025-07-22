@@ -12,7 +12,7 @@ export function WelcomeHero() {
           Welcome to Fin Studio
         </h1>
         <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
-          Advanced investment analysis platform powered by AI agents using the A2A (Agent-to-Agent) protocol for seamless communication and collaboration.
+          Advanced investment research and analysis platform powered by AI agents using the A2A (Agent-to-Agent) protocol for seamless communication and collaboration.
         </p>
         
         <div className="glass-card rounded-xl p-8 mb-8 max-w-3xl mx-auto">
