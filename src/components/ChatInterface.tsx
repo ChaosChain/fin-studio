@@ -176,9 +176,9 @@ export function ChatInterface({ onAnalysisRequest, isAnalyzing = false, disabled
 
   const quickPrompts = [
     "Analyze Apple",
-    "Examine Bitcoin", 
-    "Technical NVDA",
-    "Study Ethereum"
+    "Analyze Bitcoin", 
+    "Analyze NVDA",
+    "Analyze Ethereum"
   ];
 
   return (
