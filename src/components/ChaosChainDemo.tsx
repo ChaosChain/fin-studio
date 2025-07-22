@@ -623,7 +623,7 @@ export default function ChaosChainDemo() {
                   {paymentProcessing ? '🔄 Setting up agent payments...' : 
                    agentPaymentQueue.length > 0 ? 
                    `💰 Pay Agent ${currentAgentIndex + 1}/${agentPaymentQueue.length}` :
-                   '💰 Pay Each Agent Individually'
+                   '💰 Pay Agent Work to See Results'
                   }
                 </Button>
               )
