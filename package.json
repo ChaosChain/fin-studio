@@ -14,10 +14,13 @@
     "agents:start": "node dist/agents/manager.js",
     "agents:build": "tsc --project tsconfig.agents.json && tsc-alias -p tsconfig.agents.json",
     "gateway:start": "node dist/gateway-server.js",
-    "gateway:build": "tsc -p tsconfig.agents.json && tsc-alias -p tsconfig.agents.json"
+    "gateway:build": "tsc -p tsconfig.agents.json && tsc-alias -p tsconfig.agents.json",
+    "gateway:sdk": "npx ts-node --project tsconfig.agents.json -r tsconfig-paths/register src/gateway-server-sdk.ts",
+    "demo:a2a": "echo '🤖 ChaosChain + Google A2A Protocol Demo available at http://localhost:3000/chaos-demo'",
+    "test:a2a": "node scripts/test-a2a-integration.js"
   },
   "dependencies": {
-    "@a2a-js/sdk": "^0.2.2",
+    "@a2a-js/sdk": "^0.2.4",
     "@crossmint/client-sdk-react-ui": "^2.2.17",
     "@radix-ui/react-avatar": "^1.0.4",
     "@radix-ui/react-dialog": "^1.0.5",

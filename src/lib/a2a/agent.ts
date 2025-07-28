@@ -3,16 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import express from 'express';
 import cors from 'cors';
 
-// Handle WebSocket imports for Next.js environment
-let WebSocket: any;
-try {
-  if (typeof window === 'undefined') {
-    // Server-side: try to import ws
-    WebSocket = require('ws');
-  }
-} catch (error) {
-  console.warn('WebSocket server not available in this environment');
-}
+// Handle WebSocket imports for Node.js environment
+import * as WebSocket from 'ws';
 import {
   A2AMessage,
   A2AMessageType,
@@ -69,10 +61,13 @@ export class A2AAgent extends EventEmitter {
 
   async start(port: number = 8080): Promise<void> {
     try {
-      // For demo purposes, skip WebSocket server and use HTTP only
       this.status = A2AAgentStatus.ACTIVE;
 
-      // Set up HTTP server on the same port
+      // Initialize WebSocket server
+      this.server = new WebSocket.Server({ port });
+      console.log(`🌐 ${this.identity.name} - WebSocket server on port ${port}`);
+
+      // Set up HTTP server on a different port
       const app = express();
       app.use(cors());
       app.use(express.json());
@@ -130,11 +125,11 @@ export class A2AAgent extends EventEmitter {
         console.log(`🌐 ${this.identity.name} - HTTP server on port ${port + 1000}`);
       });
 
-      this.server.on('connection', (ws: WebSocket, req) => {
+      this.server.on('connection', (ws: WebSocket, req: any) => {
         const clientId = uuidv4();
         this.clients.set(clientId, ws);
 
-        ws.on('message', async (data: WebSocket.Data) => {
+        ws.on('message', async (data: any) => {
           try {
             const message: A2AMessage = JSON.parse(data.toString());
             await this.handleMessage(message, clientId);
@@ -147,7 +142,7 @@ export class A2AAgent extends EventEmitter {
           this.clients.delete(clientId);
         });
 
-        ws.on('error', (error) => {
+        ws.on('error', (error: any) => {
           this.handleError(error, clientId);
         });
       });
