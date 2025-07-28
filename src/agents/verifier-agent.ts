@@ -1,9 +1,9 @@
 import {
-  A2AMessage,
-  AgentIdentity,
-  AgentType,
-  A2AHandlerFunction
-} from '@/types/a2a';
+  GoogleA2AMessage,
+  GoogleA2AAgentIdentity,
+  GoogleA2AAgentType,
+  GoogleA2AHandlerFunction
+} from '@/types/google-a2a';
 import { DKGNode, dkgManager } from '@/lib/dkg';
 
 export interface ScoreVector {
@@ -37,7 +37,7 @@ export interface VerificationResult {
 }
 
 export class VerifierAgent {
-  private identity: AgentIdentity;
+  private identity: GoogleA2AAgentIdentity;
   private verifierId: string;
 
   constructor(verifierId: string) {
@@ -45,7 +45,7 @@ export class VerifierAgent {
     this.identity = {
       id: `verifier-agent-${verifierId}`,
       name: `Verifier Agent ${verifierId}`,
-      type: AgentType.VERIFIER,
+      type: GoogleA2AAgentType.VERIFIER,
       version: '1.0.0',
       capabilities: [
         'end_result_verification',
@@ -56,12 +56,12 @@ export class VerifierAgent {
     };
   }
 
-  getIdentity(): AgentIdentity {
+  getIdentity(): GoogleA2AAgentIdentity {
     return this.identity;
   }
 
-  getHandlers(): Map<string, A2AHandlerFunction> {
-    const handlers = new Map<string, A2AHandlerFunction>();
+  getHandlers(): Map<string, GoogleA2AHandlerFunction> {
+    const handlers = new Map<string, GoogleA2AHandlerFunction>();
     handlers.set('verify_work', this.verifyWork.bind(this));
     handlers.set('batch_verify', this.batchVerify.bind(this));
     return handlers;
@@ -70,7 +70,7 @@ export class VerifierAgent {
   /**
    * Main verification method
    */
-  private async verifyWork(message: A2AMessage): Promise<A2AMessage> {
+  private async verifyWork(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { nodeId, taskId } = message.payload.data || {};
       
@@ -111,7 +111,7 @@ export class VerifierAgent {
   /**
    * Batch verification for multiple nodes
    */
-  private async batchVerify(message: A2AMessage): Promise<A2AMessage> {
+  private async batchVerify(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { taskId } = message.payload.data || {};
       
@@ -735,7 +735,7 @@ export class VerifierAgent {
     return 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   }
 
-  private createErrorResponse(originalMessage: A2AMessage, error: Error): A2AMessage {
+  private createErrorResponse(originalMessage: GoogleA2AMessage, error: Error): GoogleA2AMessage {
     return {
       id: this.generateId(),
       type: 'error' as any,

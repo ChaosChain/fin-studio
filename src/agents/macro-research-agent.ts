@@ -1,10 +1,10 @@
 import OpenAI from 'openai';
 import {
-  A2AMessage,
-  AgentIdentity,
-  AgentType,
-  A2AHandlerFunction
-} from '@/types/a2a';
+  GoogleA2AMessage,
+  GoogleA2AAgentIdentity,
+  GoogleA2AAgentType,
+  GoogleA2AHandlerFunction
+} from '@/types/google-a2a';
 import {
   EconomicIndicator,
   MarketAnalysis,
@@ -16,7 +16,7 @@ import { costTracker, extractTokenUsage, logApiCallDetails } from '@/lib/cost-tr
 
 export class MacroResearchAgent {
   private openai: OpenAI;
-  private identity: AgentIdentity;
+  private identity: GoogleA2AAgentIdentity;
   private model: string = 'gpt-4.1-2025-04-14'; // Default model
 
   constructor() {
@@ -27,7 +27,7 @@ export class MacroResearchAgent {
     this.identity = {
       id: 'macro-research-agent',
       name: 'Macro Research Agent',
-      type: AgentType.MACRO_RESEARCH,
+      type: GoogleA2AAgentType.MACRO_RESEARCH,
       version: '1.0.0',
       capabilities: [
         'economic_indicators',
@@ -42,7 +42,7 @@ export class MacroResearchAgent {
     };
   }
 
-  getIdentity(): AgentIdentity {
+  getIdentity(): GoogleA2AAgentIdentity {
     return this.identity;
   }
 
@@ -61,8 +61,8 @@ export class MacroResearchAgent {
     return this.model;
   }
 
-  getHandlers(): Map<string, A2AHandlerFunction> {
-    const handlers = new Map<string, A2AHandlerFunction>();
+  getHandlers(): Map<string, GoogleA2AHandlerFunction> {
+    const handlers = new Map<string, GoogleA2AHandlerFunction>();
 
     handlers.set('analyze_economic_indicators', this.analyzeEconomicIndicators.bind(this));
     handlers.set('analyze_central_bank_policy', this.analyzeCentralBankPolicy.bind(this));
@@ -76,7 +76,7 @@ export class MacroResearchAgent {
     return handlers;
   }
 
-  private async analyzeEconomicIndicators(message: A2AMessage): Promise<A2AMessage> {
+  private async analyzeEconomicIndicators(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { indicators, regions, timeframe } = message.payload.data || {};
 
@@ -204,7 +204,7 @@ Provide exact numbers, percentages, and specific assessments. Avoid generic stat
     }
   }
 
-  private async analyzeCentralBankPolicy(message: A2AMessage): Promise<A2AMessage> {
+  private async analyzeCentralBankPolicy(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { centralBank, policyType } = message.payload.data || {};
 
@@ -322,7 +322,7 @@ Provide exact numbers, percentages, and specific assessments. Avoid generic stat
     }
   }
 
-  private async analyzeGDPTrends(message: A2AMessage): Promise<A2AMessage> {
+  private async analyzeGDPTrends(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { countries, timeframe } = message.payload.data || {};
 
@@ -449,7 +449,7 @@ Provide exact numbers, percentages, and specific assessments. Avoid generic stat
     }
   }
 
-  private async analyzeInflation(message: A2AMessage): Promise<A2AMessage> {
+  private async analyzeInflation(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { region, inflationType } = message.payload.data || {};
 
@@ -606,7 +606,7 @@ Provide exact numbers, percentages, and specific assessments. Avoid generic stat
     }
   }
 
-  private async analyzeEmployment(message: A2AMessage): Promise<A2AMessage> {
+  private async analyzeEmployment(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { region, metrics } = message.payload.data || {};
 
@@ -655,7 +655,7 @@ Provide exact numbers, percentages, and specific assessments. Avoid generic stat
     }
   }
 
-  private async analyzeCurrency(message: A2AMessage): Promise<A2AMessage> {
+  private async analyzeCurrency(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { currencyPairs, timeframe } = message.payload.data || {};
 
@@ -703,7 +703,7 @@ Provide exact numbers, percentages, and specific assessments. Avoid generic stat
     }
   }
 
-  private async getMacroOutlook(message: A2AMessage): Promise<A2AMessage> {
+  private async getMacroOutlook(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { timeframe, focus } = message.payload.data || {};
 
@@ -752,7 +752,7 @@ Provide exact numbers, percentages, and specific assessments. Avoid generic stat
     }
   }
 
-  private async analyzePolicyImpact(message: A2AMessage): Promise<A2AMessage> {
+  private async analyzePolicyImpact(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { policy, region, sectors } = message.payload.data || {};
 
@@ -1290,7 +1290,7 @@ Provide exact numbers, percentages, and specific assessments. Avoid generic stat
     return implications ? implications.split(',').map(i => i.trim()) : ['Monitor for changes'];
   }
 
-  private createErrorResponse(originalMessage: A2AMessage, error: Error): A2AMessage {
+  private createErrorResponse(originalMessage: GoogleA2AMessage, error: Error): GoogleA2AMessage {
     return {
       id: this.generateId(),
       type: 'error' as any,

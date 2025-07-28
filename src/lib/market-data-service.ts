@@ -73,7 +73,7 @@ export class MarketDataService {
       throw new Error(`Alpha Vantage API error: ${response.status}`);
     }
     
-    const data: AlphaVantageResponse = await response.json();
+    const data = await response.json() as AlphaVantageResponse;
     const quote = data['Global Quote'];
     
     if (!quote || !quote['01. symbol']) {
@@ -101,7 +101,7 @@ export class MarketDataService {
       throw new Error(`CoinGecko API error: ${response.status}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as any;
     const coinData = data[coinId];
     
     if (!coinData) {
@@ -241,7 +241,7 @@ export class MarketDataService {
         throw new Error(`CoinGecko batch API error: ${response.status}`);
       }
       
-      const data = await response.json();
+      const data = await response.json() as any;
       
       return symbols.map(symbol => {
         const coinId = this.getCoinGeckoId(symbol);
