@@ -39,7 +39,11 @@ export abstract class FinStudioAgentExecutor implements AgentExecutor {
       const task: Task = {
         id: requestContext.taskId,
         contextId: requestContext.contextId,
-        kind: "task" as const
+        kind: "task" as const,
+        status: {
+          state: "working" as const,
+          timestamp: new Date().toISOString()
+        }
       };
 
       // Publish task started event
@@ -52,7 +56,9 @@ export abstract class FinStudioAgentExecutor implements AgentExecutor {
       const responseMessage: Message = {
         messageId: `msg_${Date.now()}`,
         contextId: requestContext.contextId,
-        kind: "message" as const
+        kind: "message" as const,
+        parts: [{ kind: "text", text: JSON.stringify(result) }],
+        role: "agent"
       };
 
       // Create completed task with status update
@@ -60,7 +66,11 @@ export abstract class FinStudioAgentExecutor implements AgentExecutor {
         ...task,
         id: requestContext.taskId,
         contextId: requestContext.contextId,
-        kind: "task" as const
+        kind: "task" as const,
+        status: {
+          state: "completed" as const,
+          timestamp: new Date().toISOString()
+        }
       };
 
       // Publish final events
@@ -77,7 +87,11 @@ export abstract class FinStudioAgentExecutor implements AgentExecutor {
       const failedTask: Task = {
         id: requestContext.taskId,
         contextId: requestContext.contextId,
-        kind: "task" as const
+        kind: "task" as const,
+        status: {
+          state: "failed" as const,
+          timestamp: new Date().toISOString()
+        }
       };
 
       eventBus.publish(failedTask);
@@ -99,7 +113,11 @@ export abstract class FinStudioAgentExecutor implements AgentExecutor {
     const cancelledTask: Task = {
       id: taskId,
       contextId: `ctx_${taskId}`,
-      kind: "task" as const
+      kind: "task" as const,
+      status: {
+        state: "canceled" as const,
+        timestamp: new Date().toISOString()
+      }
     };
 
     eventBus.publish(cancelledTask);
@@ -110,15 +128,15 @@ export abstract class FinStudioAgentExecutor implements AgentExecutor {
    * Extract action from message content
    */
   private extractAction(message: Message): string {
-    // Try to extract action from message content
-    const content = message.content?.[0];
-    if (content?.type === 'text') {
+    // Try to extract action from message parts
+    const part = message.parts?.[0];
+    if (part?.kind === 'text') {
       try {
-        const parsed = JSON.parse(content.text);
+        const parsed = JSON.parse(part.text);
         return parsed.action || 'default_action';
       } catch {
         // If not JSON, use the text as action
-        return content.text || 'default_action';
+        return part.text || 'default_action';
       }
     }
     return 'default_action';
@@ -128,13 +146,13 @@ export abstract class FinStudioAgentExecutor implements AgentExecutor {
    * Extract data from message content
    */
   private extractData(message: Message): any {
-    const content = message.content?.[0];
-    if (content?.type === 'text') {
+    const part = message.parts?.[0];
+    if (part?.kind === 'text') {
       try {
-        const parsed = JSON.parse(content.text);
+        const parsed = JSON.parse(part.text);
         return parsed.data || parsed;
       } catch {
-        return { query: content.text };
+        return { query: part.text };
       }
     }
     return {};

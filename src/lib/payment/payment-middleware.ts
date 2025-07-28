@@ -4,7 +4,7 @@
  */
 
 import { PaymentServiceImpl } from './payment-service';
-import { A2AMessage, A2AMessageType } from '@/types/a2a';
+import { GoogleA2AMessage, GoogleA2AMessageType } from '@/types/google-a2a';
 import {
   PaymentMiddlewareConfig,
   AgentPaymentConfig,
@@ -27,7 +27,7 @@ export class PaymentMiddleware {
    * Middleware function to be used with A2A agents
    * Checks for payment requirements and verifies payments
    */
-  async handleMessage(message: A2AMessage, next: () => Promise<void>): Promise<void> {
+  async handleMessage(message: GoogleA2AMessage, next: () => Promise<void>): Promise<void> {
     const agentId = message.target.id;
     const agentConfig = this.config.payments[agentId];
 
@@ -78,13 +78,13 @@ export class PaymentMiddleware {
   /**
    * Send 402 Payment Required response
    */
-  private async sendPaymentRequiredResponse(message: A2AMessage, agentId: string): Promise<void> {
+  private async sendPaymentRequiredResponse(message: GoogleA2AMessage, agentId: string): Promise<void> {
     try {
       const paymentRequirements = await this.paymentService.requirePayment(agentId, message.payload.data);
       
-      const response: A2AMessage = {
+      const response: GoogleA2AMessage = {
         id: message.id + '_payment_required',
-        type: A2AMessageType.ERROR,
+        type: GoogleA2AMessageType.ERROR,
         timestamp: new Date(),
         source: message.target,
         target: message.source,
@@ -108,10 +108,10 @@ export class PaymentMiddleware {
   /**
    * Send payment failed response
    */
-  private async sendPaymentFailedResponse(message: A2AMessage, reason: string): Promise<void> {
-    const response: A2AMessage = {
+  private async sendPaymentFailedResponse(message: GoogleA2AMessage, reason: string): Promise<void> {
+    const response: GoogleA2AMessage = {
       id: message.id + '_payment_failed',
-      type: A2AMessageType.ERROR,
+      type: GoogleA2AMessageType.ERROR,
       timestamp: new Date(),
       source: message.target,
       target: message.source,
@@ -244,7 +244,7 @@ export function withPaymentMiddleware(
   
   return [
     ...middleware,
-    async (message: A2AMessage, next: () => Promise<void>) => {
+    async (message: GoogleA2AMessage, next: () => Promise<void>) => {
       await paymentMiddleware.handleMessage(message, next);
     }
   ];

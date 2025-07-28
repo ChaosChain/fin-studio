@@ -1,10 +1,10 @@
 import OpenAI from 'openai';
 import {
-  A2AMessage,
-  AgentIdentity,
-  AgentType,
-  A2AHandlerFunction
-} from '@/types/a2a';
+  GoogleA2AMessage,
+  GoogleA2AAgentIdentity,
+  GoogleA2AAgentType,
+  GoogleA2AHandlerFunction
+} from '@/types/google-a2a';
 import {
   MarketData,
   TechnicalIndicators,
@@ -18,7 +18,7 @@ import { marketDataService } from '@/lib/market-data-service';
 
 export class PriceAnalysisAgent {
   private openai: OpenAI;
-  private identity: AgentIdentity;
+  private identity: GoogleA2AAgentIdentity;
   private model: string = 'gpt-4.1-2025-04-14'; // Default model
 
   constructor() {
@@ -29,7 +29,7 @@ export class PriceAnalysisAgent {
     this.identity = {
       id: 'price-analysis-agent',
       name: 'Price Analysis Agent',
-      type: AgentType.PRICE_ANALYSIS,
+      type: GoogleA2AAgentType.PRICE_ANALYSIS,
       version: '1.0.0',
       capabilities: [
         'real_time_price_data',
@@ -44,7 +44,7 @@ export class PriceAnalysisAgent {
     };
   }
 
-  getIdentity(): AgentIdentity {
+  getIdentity(): GoogleA2AAgentIdentity {
     return this.identity;
   }
 
@@ -63,8 +63,8 @@ export class PriceAnalysisAgent {
     return this.model;
   }
 
-  getHandlers(): Map<string, A2AHandlerFunction> {
-    const handlers = new Map<string, A2AHandlerFunction>();
+  getHandlers(): Map<string, GoogleA2AHandlerFunction> {
+    const handlers = new Map<string, GoogleA2AHandlerFunction>();
     
     handlers.set('get_price_data', this.getPriceData.bind(this));
     handlers.set('get_market_data', this.get_market_data.bind(this)); // Alias for compatibility
@@ -79,7 +79,7 @@ export class PriceAnalysisAgent {
     return handlers;
   }
 
-  private async getPriceData(message: A2AMessage): Promise<A2AMessage> {
+  private async getPriceData(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { symbols, timeframe, interval } = message.payload.data || {};
       
@@ -236,7 +236,7 @@ export class PriceAnalysisAgent {
     }
   }
 
-  private async analyzeTechnicalIndicators(message: A2AMessage): Promise<A2AMessage> {
+  private async analyzeTechnicalIndicators(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { symbols, indicators, timeframe } = message.payload.data || {};
       
@@ -380,7 +380,7 @@ export class PriceAnalysisAgent {
     }
   }
 
-  private async identifyChartPatterns(message: A2AMessage): Promise<A2AMessage> {
+  private async identifyChartPatterns(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { symbols, timeframe } = message.payload.data || {};
       
@@ -429,7 +429,7 @@ export class PriceAnalysisAgent {
     }
   }
 
-  private async analyzeSupportResistance(message: A2AMessage): Promise<A2AMessage> {
+  private async analyzeSupportResistance(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { symbols, timeframe } = message.payload.data || {};
       
@@ -478,7 +478,7 @@ export class PriceAnalysisAgent {
     }
   }
 
-  private async analyzeVolatility(message: A2AMessage): Promise<A2AMessage> {
+  private async analyzeVolatility(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { symbols, timeframe } = message.payload.data || {};
       
@@ -527,7 +527,7 @@ export class PriceAnalysisAgent {
     }
   }
 
-  private async analyzeTrends(message: A2AMessage): Promise<A2AMessage> {
+  private async analyzeTrends(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { symbols, timeframe } = message.payload.data || {};
       
@@ -568,7 +568,7 @@ export class PriceAnalysisAgent {
     }
   }
 
-  private async analyzeMomentum(message: A2AMessage): Promise<A2AMessage> {
+  private async analyzeMomentum(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { symbols, timeframe } = message.payload.data || {};
       
@@ -617,7 +617,7 @@ export class PriceAnalysisAgent {
     }
   }
 
-  private async assessRisk(message: A2AMessage): Promise<A2AMessage> {
+  private async assessRisk(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { symbols, timeframe, riskMetrics } = message.payload.data || {};
       
@@ -1186,7 +1186,7 @@ export class PriceAnalysisAgent {
     return recommendations ? recommendations.split(',').map(r => r.trim()) : ['Monitor closely'];
   }
 
-  private createErrorResponse(originalMessage: A2AMessage, error: Error): A2AMessage {
+  private createErrorResponse(originalMessage: GoogleA2AMessage, error: Error): GoogleA2AMessage {
     return {
       id: this.generateId(),
       type: 'error' as any,
@@ -1212,7 +1212,7 @@ export class PriceAnalysisAgent {
   }
 
   // This is the main method called by the workflow
-  async get_market_data(message: A2AMessage): Promise<A2AMessage> {
+  async get_market_data(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { symbols, timeframe, analysisType } = message.payload.data || {};
       

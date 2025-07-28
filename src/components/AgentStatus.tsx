@@ -1,9 +1,9 @@
 'use client';
 
-import { AgentIdentity } from '@/types/a2a';
+import { GoogleA2AAgentIdentity } from '@/types/google-a2a';
 
 interface AgentStatusProps {
-  agents: AgentIdentity[];
+  agents: GoogleA2AAgentIdentity[];
 }
 
 export function AgentStatus({ agents }: AgentStatusProps) {

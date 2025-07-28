@@ -1,10 +1,10 @@
 import OpenAI from 'openai';
 import {
-  A2AMessage,
-  AgentIdentity,
-  AgentType,
-  A2AHandlerFunction
-} from '@/types/a2a';
+  GoogleA2AMessage,
+  GoogleA2AAgentIdentity,
+  GoogleA2AAgentType,
+  GoogleA2AHandlerFunction
+} from '@/types/google-a2a';
 import {
   MarketAnalysis,
   AnalysisType,
@@ -16,7 +16,7 @@ import { costTracker, extractTokenUsage, logApiCallDetails } from '@/lib/cost-tr
 
 export class InsightsAgent {
   private openai: OpenAI;
-  private identity: AgentIdentity;
+  private identity: GoogleA2AAgentIdentity;
   private model: string = 'gpt-4.1-2025-04-14'; // Default model
 
   constructor() {
@@ -27,7 +27,7 @@ export class InsightsAgent {
     this.identity = {
       id: 'insights-agent',
       name: 'Insights Agent',
-      type: AgentType.INSIGHTS_REPORTER,
+      type: GoogleA2AAgentType.INSIGHTS_REPORTER,
       version: '1.0.0',
       capabilities: [
         'daily_insights',
@@ -42,7 +42,7 @@ export class InsightsAgent {
     };
   }
 
-  getIdentity(): AgentIdentity {
+  getIdentity(): GoogleA2AAgentIdentity {
     return this.identity;
   }
 
@@ -54,8 +54,8 @@ export class InsightsAgent {
     return this.model;
   }
 
-  getHandlers(): Map<string, A2AHandlerFunction> {
-    const handlers = new Map<string, A2AHandlerFunction>();
+  getHandlers(): Map<string, GoogleA2AHandlerFunction> {
+    const handlers = new Map<string, GoogleA2AHandlerFunction>();
 
     handlers.set('generate_daily_insights', this.generateDailyInsights.bind(this));
     handlers.set('generate_daily_insight', this.generateDailyInsights.bind(this)); // Alias for compatibility
@@ -70,7 +70,7 @@ export class InsightsAgent {
     return handlers;
   }
 
-  private async generateDailyInsights(message: A2AMessage): Promise<A2AMessage> {
+  private async generateDailyInsights(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { focus, timeframe } = message.payload.data || {};
 
@@ -150,7 +150,7 @@ export class InsightsAgent {
   }
 
   // This is the main method called by the workflow
-  async generate_daily_insight(message: A2AMessage): Promise<A2AMessage> {
+  async generate_daily_insight(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { focus, timeframe, analysisData } = message.payload.data || {};
 
@@ -278,7 +278,7 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
     }
   }
 
-  private async createMarketSummary(message: A2AMessage): Promise<A2AMessage> {
+  private async createMarketSummary(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { markets, timeframe } = message.payload.data || {};
 
@@ -327,7 +327,7 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
     }
   }
 
-  private async synthesizeAnalysis(message: A2AMessage): Promise<A2AMessage> {
+  private async synthesizeAnalysis(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { analysisData, focusAreas } = message.payload.data || {};
 
@@ -376,7 +376,7 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
     }
   }
 
-  private async generateReport(message: A2AMessage): Promise<A2AMessage> {
+  private async generateReport(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { reportType, data, audience } = message.payload.data || {};
 
@@ -425,7 +425,7 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
     }
   }
 
-  private async createAlert(message: A2AMessage): Promise<A2AMessage> {
+  private async createAlert(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { alertType, thresholds, symbols } = message.payload.data || {};
 
@@ -474,7 +474,7 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
     }
   }
 
-  private async getPortfolioInsights(message: A2AMessage): Promise<A2AMessage> {
+  private async getPortfolioInsights(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { portfolioData, benchmarks } = message.payload.data || {};
 
@@ -523,7 +523,7 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
     }
   }
 
-  private async aggregateData(message: A2AMessage): Promise<A2AMessage> {
+  private async aggregateData(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { dataSources, aggregationType } = message.payload.data || {};
 
@@ -738,7 +738,7 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
     return points.length > 0 ? points : ['Analysis provided by AI'];
   }
 
-  private async generateInsights(message: A2AMessage): Promise<A2AMessage> {
+  private async generateInsights(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { symbols, analysisTypes } = message.payload.data || {};
       
@@ -908,7 +908,7 @@ Provide exact numbers, specific percentages, and actionable insights. Avoid gene
     return Math.min(1.0, score);
   }
 
-  private createErrorResponse(originalMessage: A2AMessage, error: Error): A2AMessage {
+  private createErrorResponse(originalMessage: GoogleA2AMessage, error: Error): GoogleA2AMessage {
     return {
       id: this.generateId(),
       type: 'error' as any,

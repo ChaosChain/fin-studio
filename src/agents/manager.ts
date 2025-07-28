@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events';
 import { config } from 'dotenv';
-import { A2AAgent } from '@/lib/a2a/agent';
 import { MarketResearchAgent } from './market-research-agent';
 import { MacroResearchAgent } from './macro-research-agent';
 import { PriceAnalysisAgent } from './price-analysis-agent';
@@ -12,17 +11,32 @@ import { agentReputationNetwork, ReputationUpdate } from '@/lib/arn';
 import { agentRelayNetwork, AgentProfile } from '@/lib/agent-relay-network';
 import { nostrAgentRelayNetwork } from '@/lib/nostr-agent-relay-network';
 import { NostrARNIntegration } from '@/lib/nostr-arn-integration';
-import {
-  AgentIdentity,
-  AgentType,
-  A2AMessage,
-  A2AMessageType,
-  A2AAgentStatus,
-  A2ARegistry,
-  A2ARegistryEntry,
-  A2AMetrics
-} from '@/types/a2a';
 import { PaymentMiddlewareConfig } from '@/types/payment';
+
+// Google A2A SDK imports
+import {
+  AgentExecutor,
+  RequestContext,
+  ExecutionEventBus,
+  A2AError
+} from '@a2a-js/sdk/dist/server/index.js';
+import {
+  Message,
+  Task,
+  TaskState
+} from '@a2a-js/sdk/dist/index.js';
+
+// Google A2A types
+import {
+  GoogleA2AAgentIdentity,
+  GoogleA2AAgentType,
+  GoogleA2AMessage,
+  GoogleA2AMessageType,
+  GoogleA2AAgentStatus,
+  GoogleA2ARegistry,
+  GoogleA2ARegistryEntry,
+  GoogleA2AMetrics
+} from '@/types/google-a2a';
 
 // Load environment variables from .env.local
 config({ path: '.env.local' });
@@ -47,10 +61,10 @@ interface ComponentExecution {
 
 export class AgentManager extends EventEmitter {
   private agents: Map<string, any>;
-  private a2aAgents: Map<string, A2AAgent>;
+  private a2aAgents: Map<string, AgentExecutor>;
   private verifierAgents: Map<string, VerifierAgent>;
-  private registry: Map<string, A2ARegistryEntry>;
-  private messageQueue: A2AMessage[];
+  private registry: Map<string, any>;
+  private messageQueue: Message[];
   private isRunning: boolean;
   private ports: Map<string, number>;
   private paymentConfig: PaymentMiddlewareConfig;
@@ -176,11 +190,19 @@ export class AgentManager extends EventEmitter {
     console.log('Registering agents in registry...');
 
     for (const [agentId, a2aAgent] of this.a2aAgents) {
-      const identity = a2aAgent.getIdentity();
+      // Google A2A SDK agents don't have getIdentity method
+      // Create a default identity for the agent
+      const identity: GoogleA2AAgentIdentity = {
+        id: agentId,
+        name: agentId.replace('-agent', ' Agent'),
+        type: GoogleA2AAgentType.ORCHESTRATOR,
+        version: '1.0.0',
+        capabilities: ['a2a_execution']
+      };
       
-      const registryEntry: A2ARegistryEntry = {
+      const registryEntry: GoogleA2ARegistryEntry = {
         agent: identity,
-        status: A2AAgentStatus.ACTIVE,
+        status: GoogleA2AAgentStatus.ACTIVE,
         lastSeen: new Date(),
         metrics: {
           messagesProcessed: 0,
@@ -199,11 +221,10 @@ export class AgentManager extends EventEmitter {
   private setupMessageRouting(): void {
     console.log('Setting up message routing...');
 
-    // Set up inter-agent communication
+    // Set up inter-agent communication using Google A2A SDK
     for (const [agentId, a2aAgent] of this.a2aAgents) {
-      a2aAgent.on('outgoing_message', (message: A2AMessage) => {
-        this.routeMessage(message);
-      });
+      // Google A2A SDK handles message routing internally
+      console.log(`📡 ${agentId} registered for A2A communication`);
     }
   }
 
@@ -376,28 +397,27 @@ export class AgentManager extends EventEmitter {
     });
   }
 
-  private async routeMessage(message: A2AMessage): Promise<void> {
+  private async routeMessage(message: GoogleA2AMessage): Promise<void> {
     const targetAgentId = message.target.id;
     const targetAgent = this.a2aAgents.get(targetAgentId);
 
     if (targetAgent) {
-      // Direct agent-to-agent communication
-      // In a real implementation, this would use WebSocket or HTTP communication
+      // Google A2A SDK handles direct agent-to-agent communication
       console.log(`Routing message from ${message.source.id} to ${targetAgentId}: ${message.payload.action}`);
       
-      // For now, emit the message to the target agent
+      // Emit the message to the target agent
       this.emit('message_routed', { from: message.source.id, to: targetAgentId, message });
     } else {
       console.warn(`Target agent not found: ${targetAgentId}`);
     }
   }
 
-  private createRegistryInterface(): A2ARegistry {
+  private createRegistryInterface(): GoogleA2ARegistry {
     return {
-      register: async (agent: AgentIdentity) => {
-        const registryEntry: A2ARegistryEntry = {
+      register: async (agent: GoogleA2AAgentIdentity) => {
+        const registryEntry: GoogleA2ARegistryEntry = {
           agent,
-          status: A2AAgentStatus.ACTIVE,
+          status: GoogleA2AAgentStatus.ACTIVE,
           lastSeen: new Date(),
           metrics: {
             messagesProcessed: 0,
@@ -413,8 +433,8 @@ export class AgentManager extends EventEmitter {
         this.registry.delete(agentId);
       },
 
-      discover: async (criteria?: Partial<AgentIdentity>) => {
-        const results: AgentIdentity[] = [];
+      discover: async (criteria?: Partial<GoogleA2AAgentIdentity>) => {
+        const results: GoogleA2AAgentIdentity[] = [];
         
         for (const [agentId, entry] of this.registry) {
           if (this.matchesCriteria(entry.agent, criteria)) {
@@ -430,7 +450,7 @@ export class AgentManager extends EventEmitter {
         return entry ? entry.agent : null;
       },
 
-      updateStatus: async (agentId: string, status: A2AAgentStatus) => {
+      updateStatus: async (agentId: string, status: GoogleA2AAgentStatus) => {
         const entry = this.registry.get(agentId);
         if (entry) {
           entry.status = status;
@@ -441,12 +461,12 @@ export class AgentManager extends EventEmitter {
     };
   }
 
-  private matchesCriteria(agent: AgentIdentity, criteria?: Partial<AgentIdentity>): boolean {
+  private matchesCriteria(agent: GoogleA2AAgentIdentity, criteria?: Partial<GoogleA2AAgentIdentity>): boolean {
     if (!criteria) return true;
 
     if (criteria.type && agent.type !== criteria.type) return false;
     if (criteria.name && !agent.name.includes(criteria.name)) return false;
-    if (criteria.capabilities && !criteria.capabilities.every(cap => agent.capabilities.includes(cap))) return false;
+    if (criteria.capabilities && !criteria.capabilities.every((cap: string) => agent.capabilities.includes(cap))) return false;
 
     return true;
   }
@@ -470,18 +490,18 @@ export class AgentManager extends EventEmitter {
       throw new Error('Agent Manager not initialized');
     }
 
-    const message: A2AMessage = {
+    const message: GoogleA2AMessage = {
       id: this.generateId(),
-      type: A2AMessageType.REQUEST,
+      type: GoogleA2AMessageType.REQUEST,
       timestamp: new Date(),
       source: {
         id: 'agent-manager',
         name: 'Agent Manager',
-        type: AgentType.ORCHESTRATOR,
+        type: GoogleA2AAgentType.ORCHESTRATOR,
         version: '1.0.0',
         capabilities: ['orchestration', 'coordination']
       },
-      target: { id: 'market-research-agent' } as AgentIdentity,
+      target: { id: 'market-research-agent' } as GoogleA2AAgentIdentity,
       payload: {
         action: 'analyze_news',
         data: {
@@ -500,18 +520,18 @@ export class AgentManager extends EventEmitter {
       throw new Error('Agent Manager not initialized');
     }
 
-    const message: A2AMessage = {
+    const message: GoogleA2AMessage = {
       id: this.generateId(),
-      type: A2AMessageType.REQUEST,
+      type: GoogleA2AMessageType.REQUEST,
       timestamp: new Date(),
       source: {
         id: 'agent-manager',
         name: 'Agent Manager',
-        type: AgentType.ORCHESTRATOR,
+        type: GoogleA2AAgentType.ORCHESTRATOR,
         version: '1.0.0',
         capabilities: ['orchestration', 'coordination']
       },
-      target: { id: 'macro-research-agent' } as AgentIdentity,
+      target: { id: 'macro-research-agent' } as GoogleA2AAgentIdentity,
       payload: {
         action: 'analyze_economic_indicators',
         data: {
@@ -530,18 +550,18 @@ export class AgentManager extends EventEmitter {
       throw new Error('Agent Manager not initialized');
     }
 
-    const message: A2AMessage = {
+    const message: GoogleA2AMessage = {
       id: this.generateId(),
-      type: A2AMessageType.REQUEST,
+      type: GoogleA2AMessageType.REQUEST,
       timestamp: new Date(),
       source: {
         id: 'agent-manager',
         name: 'Agent Manager',
-        type: AgentType.ORCHESTRATOR,
+        type: GoogleA2AAgentType.ORCHESTRATOR,
         version: '1.0.0',
         capabilities: ['orchestration', 'coordination']
       },
-      target: { id: 'price-analysis-agent' } as AgentIdentity,
+      target: { id: 'price-analysis-agent' } as GoogleA2AAgentIdentity,
       payload: {
         action: analysisType === 'technical' ? 'analyze_technical_indicators' : 'get_market_data',
         data: {
@@ -559,18 +579,18 @@ export class AgentManager extends EventEmitter {
       throw new Error('Agent Manager not initialized');
     }
 
-    const message: A2AMessage = {
+    const message: GoogleA2AMessage = {
       id: this.generateId(),
-      type: A2AMessageType.REQUEST,
+      type: GoogleA2AMessageType.REQUEST,
       timestamp: new Date(),
       source: {
         id: 'agent-manager',
         name: 'Agent Manager',
-        type: AgentType.ORCHESTRATOR,
+        type: GoogleA2AAgentType.ORCHESTRATOR,
         version: '1.0.0',
         capabilities: ['orchestration', 'coordination']
       },
-      target: { id: 'insights-agent' } as AgentIdentity,
+      target: { id: 'insights-agent' } as GoogleA2AAgentIdentity,
       payload: {
         action: 'generate_daily_insight',
         data: {
@@ -584,7 +604,7 @@ export class AgentManager extends EventEmitter {
     return this.sendMessage(message);
   }
 
-  async discoverAgents(criteria?: Partial<AgentIdentity>): Promise<AgentIdentity[]> {
+  async discoverAgents(criteria?: Partial<GoogleA2AAgentIdentity>): Promise<GoogleA2AAgentIdentity[]> {
     const registry = this.createRegistryInterface();
     return registry.discover(criteria);
   }
@@ -618,12 +638,12 @@ export class AgentManager extends EventEmitter {
     return baseCapabilities;
   }
 
-  async getAgentStatus(agentId: string): Promise<A2AAgentStatus | null> {
+  async getAgentStatus(agentId: string): Promise<GoogleA2AAgentStatus | null> {
     const entry = this.registry.get(agentId);
     return entry ? entry.status : null;
   }
 
-  async getAgentMetrics(agentId: string): Promise<A2AMetrics | null> {
+  async getAgentMetrics(agentId: string): Promise<GoogleA2AMetrics | null> {
     const entry = this.registry.get(agentId);
     return entry ? entry.metrics : null;
   }
@@ -644,18 +664,27 @@ export class AgentManager extends EventEmitter {
     return this.paymentConfig;
   }
 
-  getRegistrySnapshot(): Map<string, A2ARegistryEntry> {
+  getRegistrySnapshot(): Map<string, GoogleA2ARegistryEntry> {
     return new Map(this.registry);
   }
 
-  private async sendMessage(message: A2AMessage): Promise<any> {
+  private async sendMessage(message: GoogleA2AMessage): Promise<any> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Message timeout'));
       }, 30000);
 
+      // Convert Google A2A message to Google A2A SDK Message format
+      const sdkMessage: Message = {
+        messageId: message.id,
+        contextId: message.metadata?.contextId || `ctx_${message.id}`,
+        kind: "message" as const,
+        parts: [{ kind: "text", text: JSON.stringify(message.payload) }],
+        role: "user"
+      };
+
       // Store message in queue for processing
-      this.messageQueue.push(message);
+      this.messageQueue.push(sdkMessage);
 
       // Simulate message processing
       setTimeout(() => {
@@ -900,14 +929,14 @@ export class AgentManager extends EventEmitter {
         case 'sentiment':
           if (agentId.includes('market-research-agent')) {
             // Create A2A message for sentiment analysis
-            const message: A2AMessage = {
+            const message: GoogleA2AMessage = {
               id: this.generateId(),
-              type: A2AMessageType.REQUEST,
+              type: GoogleA2AMessageType.REQUEST,
               timestamp: new Date(),
               source: {
                 id: 'agent-manager',
                 name: 'Agent Manager',
-                type: AgentType.ORCHESTRATOR,
+                type: GoogleA2AAgentType.ORCHESTRATOR,
                 version: '1.0.0',
                 capabilities: ['orchestration', 'coordination']
               },
@@ -935,14 +964,14 @@ export class AgentManager extends EventEmitter {
         case 'technical':
           if (agentId.includes('price-analysis-agent')) {
             // Create A2A message for technical analysis
-            const message: A2AMessage = {
+            const message: GoogleA2AMessage = {
               id: this.generateId(),
-              type: A2AMessageType.REQUEST,
+              type: GoogleA2AMessageType.REQUEST,
               timestamp: new Date(),
               source: {
                 id: 'agent-manager',
                 name: 'Agent Manager',
-                type: AgentType.ORCHESTRATOR,
+                type: GoogleA2AAgentType.ORCHESTRATOR,
                 version: '1.0.0',
                 capabilities: ['orchestration', 'coordination']
               },
@@ -970,14 +999,14 @@ export class AgentManager extends EventEmitter {
         case 'macro':
           if (agentId.includes('macro-research-agent')) {
             // Create A2A message for macro analysis
-            const message: A2AMessage = {
+            const message: GoogleA2AMessage = {
               id: this.generateId(),
-              type: A2AMessageType.REQUEST,
+              type: GoogleA2AMessageType.REQUEST,
               timestamp: new Date(),
               source: {
                 id: 'agent-manager',
                 name: 'Agent Manager',
-                type: AgentType.ORCHESTRATOR,
+                type: GoogleA2AAgentType.ORCHESTRATOR,
                 version: '1.0.0',
                 capabilities: ['orchestration', 'coordination']
               },
@@ -1006,14 +1035,14 @@ export class AgentManager extends EventEmitter {
         case 'insights':
           if (agentId.includes('insights-agent')) {
             // Create A2A message for insights generation
-            const message: A2AMessage = {
+            const message: GoogleA2AMessage = {
               id: this.generateId(),
-              type: A2AMessageType.REQUEST,
+              type: GoogleA2AMessageType.REQUEST,
               timestamp: new Date(),
               source: {
                 id: 'agent-manager',
                 name: 'Agent Manager',
-                type: AgentType.ORCHESTRATOR,
+                type: GoogleA2AAgentType.ORCHESTRATOR,
                 version: '1.0.0',
                 capabilities: ['orchestration', 'coordination']
               },

@@ -1,10 +1,10 @@
 import OpenAI from 'openai';
 import {
-  A2AMessage,
-  AgentIdentity,
-  AgentType,
-  A2AHandlerFunction
-} from '@/types/a2a';
+  GoogleA2AMessage,
+  GoogleA2AAgentIdentity,
+  GoogleA2AAgentType,
+  GoogleA2AHandlerFunction
+} from '@/types/google-a2a';
 import {
   NewsArticle,
   MarketAnalysis,
@@ -19,7 +19,7 @@ import { costTracker, extractTokenUsage, logApiCallDetails } from '@/lib/cost-tr
 
 export class MarketResearchAgent {
   private openai: OpenAI;
-  private identity: AgentIdentity;
+  private identity: GoogleA2AAgentIdentity;
   private model: string = 'gpt-4.1-2025-04-14'; // Default model
 
   constructor() {
@@ -30,7 +30,7 @@ export class MarketResearchAgent {
     this.identity = {
       id: 'market-research-agent',
       name: 'Market Research Agent',
-      type: AgentType.MARKET_RESEARCH,
+      type: GoogleA2AAgentType.MARKET_RESEARCH,
       version: '1.0.0',
       capabilities: [
         'news_analysis',
@@ -43,7 +43,7 @@ export class MarketResearchAgent {
     };
   }
 
-  getIdentity(): AgentIdentity {
+  getIdentity(): GoogleA2AAgentIdentity {
     return this.identity;
   }
 
@@ -62,8 +62,8 @@ export class MarketResearchAgent {
     return this.model;
   }
 
-  getHandlers(): Map<string, A2AHandlerFunction> {
-    const handlers = new Map<string, A2AHandlerFunction>();
+  getHandlers(): Map<string, GoogleA2AHandlerFunction> {
+    const handlers = new Map<string, GoogleA2AHandlerFunction>();
     
     handlers.set('analyze_news', this.analyzeNews.bind(this));
     handlers.set('research_company', this.researchCompany.bind(this));
@@ -75,7 +75,7 @@ export class MarketResearchAgent {
     return handlers;
   }
 
-  private async analyzeNews(message: A2AMessage): Promise<A2AMessage> {
+  private async analyzeNews(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { symbols, keywords, timeframe } = message.payload.data || {};
       
@@ -204,7 +204,7 @@ export class MarketResearchAgent {
     }
   }
 
-  private async researchCompany(message: A2AMessage): Promise<A2AMessage> {
+  private async researchCompany(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { symbol, aspects } = message.payload.data || {};
       
@@ -327,7 +327,7 @@ export class MarketResearchAgent {
   }
 
   // This is the main method called by the workflow
-  async analyze_market_sentiment(message: A2AMessage): Promise<A2AMessage> {
+  async analyze_market_sentiment(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { symbols, timeframe } = message.payload.data || {};
       
@@ -445,7 +445,7 @@ Provide specific numbers, percentages, and actionable insights. Use exact metric
     }
   }
 
-  private async analyzeSector(message: A2AMessage): Promise<A2AMessage> {
+  private async analyzeSector(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { sector, metrics } = message.payload.data || {};
       
@@ -556,7 +556,7 @@ Provide specific numbers, percentages, and actionable insights. Use exact metric
     }
   }
 
-  private async getTrendingTopics(message: A2AMessage): Promise<A2AMessage> {
+  private async getTrendingTopics(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { limit = 10 } = message.payload.data || {};
       
@@ -602,7 +602,7 @@ Provide specific numbers, percentages, and actionable insights. Use exact metric
     }
   }
 
-  private async analyzeEventImpact(message: A2AMessage): Promise<A2AMessage> {
+  private async analyzeEventImpact(message: GoogleA2AMessage): Promise<GoogleA2AMessage> {
     try {
       const { event, affectedSymbols } = message.payload.data || {};
       
@@ -1055,7 +1055,7 @@ Provide specific numbers, percentages, and actionable insights. Use exact metric
     return affectedSectors.length > 0 ? affectedSectors : ['general market'];
   }
 
-  private createErrorResponse(originalMessage: A2AMessage, error: Error): A2AMessage {
+  private createErrorResponse(originalMessage: GoogleA2AMessage, error: Error): GoogleA2AMessage {
     return {
       id: this.generateId(),
       type: 'error' as any,
